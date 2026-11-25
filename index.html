@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#050607">
+    <title>TrustGift — Member area</title>
+    <link rel="stylesheet" href="styles.css?v=3">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="#dashboard" aria-label="TrustGift home">
+        <span class="brand-mark"><span>TG</span></span>
+        <span>TrustGift</span>
+      </a>
+      <nav class="main-nav" aria-label="Main navigation">
+        <a class="public-only" href="#levels">The 8 levels</a>
+        <a class="public-only" href="#how-it-works">How it works</a>
+        <a class="public-only" href="#payments">Payments</a>
+        <a class="public-only" href="#security">Security</a>
+        <a href="#leaderboard"><span class="dashboard-only">♧&nbsp; </span>Leaderboard</a>
+        <a class="dashboard-only" href="#dashboard">▦&nbsp; Dashboard</a>
+        <a class="dashboard-only" href="#gifts">♙&nbsp; Gifts</a>
+        <a class="dashboard-only" href="#referrals">♧&nbsp; Referrals</a>
+        <a class="dashboard-only" href="#support">◎&nbsp; Support</a>
+      </nav>
+      <div class="header-actions">
+        <div class="language-switch" aria-label="Choose language">
+          <span aria-hidden="true">◎</span>
+          <button type="button" class="language" data-lang="FR">FR</button>
+          <button type="button" class="language selected" data-lang="EN">EN</button>
+          <button type="button" class="language" data-lang="ES">ES</button>
+        </div>
+        <a class="sign-in public-only" href="#signin">Sign in</a>
+        <a class="button button-small public-only" href="#join">Join</a>
+        <div class="member-account dashboard-only">
+          <strong>@Guerson</strong>
+          <small>1A612B34</small>
+        </div>
+        <a class="icon-button dashboard-only" href="#join" aria-label="Sign out">↪</a>
+        <button class="menu-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false">☰</button>
+      </div>
+    </header>
+
+    <main>
+      <section id="dashboard-view" class="view">
+        <section class="welcome-panel">
+          <div class="welcome-copy">
+            <span class="eyebrow">MEMBER AREA</span>
+            <h1>Good to see you again, Guerson</h1>
+            <p class="member-links">
+              <span>Guerson Jean Louis</span>
+              <strong>@Guerson</strong>
+              <a href="#journey">See my public journey</a>
+              <a href="#profile">Edit my profile</a>
+              <a href="#referrals">My referrals</a>
+            </p>
+            <p class="microcopy">Your name is only visible to you. Other members only see your username.</p>
+            <p class="motto">« Together, we achieve more »</p>
+          </div>
+          <div class="summary-cards">
+            <div class="summary-card accent">
+              <span class="summary-icon">♙</span>
+              <div><small>GIFTS EARNED</small><strong>0</strong></div>
+            </div>
+            <div class="summary-card">
+              <span class="summary-icon">♧</span>
+              <div><small>ACTIVE REFERRALS</small><strong>0</strong></div>
+            </div>
+          </div>
+          <div class="referral-strip">
+            <p><strong>Your referral link:</strong> Share it: while you are an active Bronze member, every 5 active referrals earns you a Support gift.</p>
+            <div class="copy-link">
+              <code>https://trustgift.example/register?ref=1A612B34</code>
+              <button class="button copy-button" type="button">▢&nbsp; Copy</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="levels-section" id="levels">
+          <div class="section-heading">
+            <h2>The 8 precious-metal levels</h2>
+            <p>Offer your gift to join the FIFO line of the matching level.</p>
+          </div>
+          <div class="levels-grid" id="levels-grid"></div>
+        </section>
+      </section>
+
+      <section id="join-view" class="view form-view" hidden>
+        <form class="join-card" id="join-form">
+          <div class="form-intro">
+            <span class="form-icon">♧</span>
+            <h1>Join TrustGift</h1>
+            <p>« Together, we achieve more »</p>
+          </div>
+          <div class="field-row">
+            <label>First name<input name="firstName" placeholder="John" required></label>
+            <label>Last name<input name="lastName" placeholder="Doe" required></label>
+          </div>
+          <p class="field-hint">Your name stays private: it only appears in your dashboard.</p>
+          <label>Username<input name="username" placeholder="@ jean_d" required></label>
+          <p class="field-hint">This is your public identity: it shows in the lines and on your journey.</p>
+          <label>E-mail address<input name="email" type="email" placeholder="jean@example.com" required></label>
+          <div class="field-row">
+            <label>Password<div class="password-field"><input name="password" type="password" placeholder="••••••••" minlength="8" required><button class="show-password" type="button" aria-label="Show password">◎</button></div><span class="field-hint">At least 8 characters, with at least one letter and one digit.</span></label>
+            <label>Confirm the password<div class="password-field"><input name="confirmPassword" type="password" placeholder="••••••••" minlength="8" required><button class="show-password" type="button" aria-label="Show password">◎</button></div></label>
+          </div>
+          <label>Referral code (optional)<input class="referral-code" name="referralCode" value="D03FD868"></label>
+          <label>Country<select name="country" required><option value="">Choose your country</option><option>Brazil</option><option>Canada</option><option>France</option><option>Haiti</option><option>United States</option></select></label>
+          <div class="field-row phone-row">
+            <label>Phone (optional)<span class="phone-inputs"><select aria-label="Phone country"><option>Country</option><option>+1</option><option>+33</option><option>+55</option></select><input placeholder="Number" type="tel"></span></label>
+            <label>WhatsApp (optional)<span class="phone-inputs"><select aria-label="WhatsApp country"><option>Country</option><option>+1</option><option>+33</option><option>+55</option></select><input placeholder="Number" type="tel"></span></label>
+          </div>
+          <p class="field-hint">Your number is only shown to members who reserve a place to offer you a gift.</p>
+          <hr>
+          <h2 class="subheading">How you receive gifts</h2>
+          <p class="section-copy">Add one or more methods. Members who offer you a gift will see your default one first.</p>
+          <div class="payment-box" id="payments">
+            <div class="payment-tabs" role="tablist" aria-label="Payment method">
+              <button type="button" class="payment-tab active" data-method="Crypto">₿&nbsp; Crypto</button>
+              <button type="button" class="payment-tab" data-method="Zelle">ϟ&nbsp; Zelle</button>
+              <button type="button" class="payment-tab" data-method="Cash App">$&nbsp; Cash App</button>
+              <button type="button" class="payment-tab" data-method="MonCash">▣&nbsp; MonCash</button>
+              <button type="button" class="payment-tab" data-method="NatCash">▣&nbsp; NatCash</button>
+            </div>
+            <div class="payment-options" id="payment-options">
+              <p>1. Choose the crypto</p>
+              <button class="choice selected" type="button">Tether (USDT)</button>
+              <button class="choice" type="button">USD Coin (USDC)</button>
+            </div>
+            <div class="payment-detail" id="payment-detail" hidden>
+              <label id="payment-label">Account detail<input placeholder="Enter your payment details"></label>
+            </div>
+            <button type="button" class="button add-method">＋&nbsp; Add</button>
+            <div class="added-methods" id="added-methods"></div>
+          </div>
+          <label class="terms-title">Terms (required)</label>
+          <div class="terms-list">
+            <label class="check-row"><input type="checkbox" required><span>I confirm that I am at least 18 years old (or the age of legal majority in my country, if higher) and that I have full legal capacity.</span></label>
+            <label class="check-row"><input type="checkbox" required><span>I understand that gifts are voluntary, final and non-refundable, that receiving gifts is never guaranteed and depends on other members joining, and that I may lose the full amount I give. I only give what I can afford to lose.</span></label>
+            <label class="check-row"><input type="checkbox" required><span>I have read and accept the <a href="#terms">Terms of Use</a> and the <a href="#privacy">Privacy Policy</a>.</span></label>
+          </div>
+          <p class="legal-note">By ticking these boxes you sign electronically. The date, time, your IP address and the version of the texts are recorded as proof.</p>
+          <button class="button create-account" type="submit">Create my account</button>
+          <p class="signin-prompt">Already have an account? <a href="#signin">Sign in</a></p>
+        </form>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <a class="brand" href="#dashboard"><span class="brand-mark"><span>TG</span></span><span>TrustGift</span></a>
+      <span>© 2026 TrustGift</span>
+    </footer>
+    <button class="back-to-top" type="button" aria-label="Back to top">↑</button>
+    <div class="toast" role="status" aria-live="polite"></div>
+    <script src="app.js"></script>
+  </body>
+</html>
