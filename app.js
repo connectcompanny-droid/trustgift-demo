@@ -227,18 +227,49 @@ document.querySelectorAll(".level-action:not(:disabled)").forEach(button => butt
 const paymentTabs = document.querySelectorAll(".payment-tab");
 const paymentOptions = document.querySelector("#payment-options");
 const paymentDetail = document.querySelector("#payment-detail");
+const paymentLabel = document.querySelector("#payment-label");
+const paymentInput = paymentDetail.querySelector("input");
+const paymentHint = document.querySelector("#payment-hint");
+const pixTab = document.querySelector('.payment-tab[data-method="Pix"]');
+const countrySelect = document.querySelector("#country-select");
 let selectedPayment = "Crypto";
 
+function updatePixAvailability() {
+  const isBrazil = countrySelect.value === "Brazil";
+  pixTab.hidden = !isBrazil;
+  if (!isBrazil) {
+    const pixMethods = document.querySelectorAll('.added-method[data-method="Pix"]');
+    pixMethods.forEach(method => method.remove());
+    if (selectedPayment === "Pix") {
+      document.querySelector('.payment-tab[data-method="Crypto"]').click();
+      paymentInput.value = "";
+    }
+  }
+}
+
+function updatePaymentFields() {
+  const isCrypto = selectedPayment === "Crypto";
+  const isPix = selectedPayment === "Pix";
+  paymentOptions.hidden = !isCrypto;
+  paymentDetail.hidden = isCrypto;
+  paymentLabel.firstChild.textContent = isPix ? "Pix key " : `${selectedPayment} account `;
+  paymentInput.placeholder = isPix
+    ? "CPF, e-mail, phone or random key"
+    : `Enter your ${selectedPayment} details`;
+  paymentHint.hidden = !isPix;
+  paymentHint.textContent = isPix
+    ? "Use a Pix key you control. This demo does not save or send it."
+    : "";
+}
+
+countrySelect.addEventListener("change", updatePixAvailability);
+updatePixAvailability();
+
 paymentTabs.forEach(button => button.addEventListener("click", () => {
+  if (button.dataset.method === "Pix" && countrySelect.value !== "Brazil") return;
   selectedPayment = button.dataset.method;
   paymentTabs.forEach(tab => tab.classList.toggle("active", tab === button));
-  const crypto = selectedPayment === "Crypto";
-  paymentOptions.hidden = !crypto;
-  paymentDetail.hidden = crypto;
-  if (!crypto) {
-    document.querySelector("#payment-label").firstChild.textContent = `${selectedPayment} account `;
-    document.querySelector("#payment-detail input").placeholder = `Enter your ${selectedPayment} details`;
-  }
+  updatePaymentFields();
 }));
 
 document.querySelectorAll(".choice").forEach(button => button.addEventListener("click", () => {
@@ -256,6 +287,7 @@ document.querySelector(".add-method").addEventListener("click", () => {
   const method = selectedPayment === "Crypto" ? `${selectedPayment} · ${detail}` : `${selectedPayment} · ${detail}`;
   const row = document.createElement("div");
   row.className = "added-method";
+  row.dataset.method = selectedPayment;
   const text = document.createElement("span");
   text.textContent = method;
   const remove = document.createElement("button");

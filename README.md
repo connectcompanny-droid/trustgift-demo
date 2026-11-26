@@ -30,5 +30,5 @@ the initial records. Referral codes are resolved inside the database and the
 referral-count function only returns the signed-in user's count.
 
 Payment-method inputs on the demo are local-only and are never submitted to
-Supabase. Do not use this demo to collect wallet addresses, banking details,
-or real payments.
+Supabase. Pix is shown when Brazil is selected. Do not use this demo to collect
+wallet addresses, banking details, or real payments.
