@@ -57,6 +57,7 @@ let schemaReady = false;
 let currentUser = null;
 let currentProfile = null;
 let toastTimer;
+let authRedirectUrl = "";
 
 function showToast(message) {
   toast.textContent = message;
@@ -192,14 +193,23 @@ async function applySession(session) {
 
 async function initializeSupabase() {
   const config = window.TRUSTGIFT_SUPABASE_CONFIG;
-  if (!config?.url || !config?.publishableKey) {
-    const message = "Supabase is not connected yet. Add the project URL and publishable key to supabase-config.js, then apply the SQL migration.";
+  if (!config?.url || !config?.publishableKey || !config?.siteUrl) {
+    const message = "Supabase is not configured. Add its project URL, publishable key, and public site URL to supabase-config.js.";
     setAuthStatus("signup-status", message);
     setAuthStatus("signin-status", message);
     return;
   }
 
   try {
+    const publicSiteUrl = new URL(config.siteUrl);
+    if (publicSiteUrl.protocol !== "https:" || ["localhost", "127.0.0.1", "::1"].includes(publicSiteUrl.hostname)) {
+      throw new Error("The Supabase email redirect must use the public HTTPS site URL.");
+    }
+    publicSiteUrl.search = "";
+    publicSiteUrl.hash = "";
+    publicSiteUrl.pathname = `${publicSiteUrl.pathname.replace(/\/+$/, "")}/`;
+    authRedirectUrl = publicSiteUrl.toString();
+
     const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
     supabaseClient = createClient(config.url, config.publishableKey, {
       auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: true }
@@ -640,7 +650,7 @@ joinForm.addEventListener("submit", event => {
     email: String(formData.get("email")).trim(),
     password,
     options: {
-      emailRedirectTo: `${location.origin}${location.pathname}#signin`,
+      emailRedirectTo: authRedirectUrl,
       data: {
         first_name: String(formData.get("firstName")).trim(),
         last_name: String(formData.get("lastName")).trim(),

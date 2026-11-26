@@ -13,11 +13,14 @@ process gifts or store payment account details.
    function, and row-level security policies.
 3. Copy the project URL and the **publishable key** (or legacy `anon` key)
    from Project Settings → API into `supabase-config.js`.
+   Set `siteUrl` to the public HTTPS URL of this app; email confirmations use
+   this URL rather than the browser's current origin.
    These client values are public by design; never put a `service_role` or
    secret key in this file or in frontend code.
 4. In Supabase Authentication → URL Configuration, add the deployed site URL
    to the allowed redirect URLs:
    `https://connectcompanny-droid.github.io/trustgift-demo/**`
+   Set the Site URL to `https://connectcompanny-droid.github.io/trustgift-demo/`.
 5. In Authentication → Providers → Email, choose whether email confirmation
    is required. With confirmation enabled, members confirm their email before
    signing in.
