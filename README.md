@@ -29,6 +29,8 @@ restricts profile and consent reads to their owner; the signup trigger creates
 the initial records. Referral codes are resolved inside the database and the
 referral-count function only returns the signed-in user's count.
 
-Payment-method inputs on the demo are local-only and are never submitted to
-Supabase. Pix is shown when Brazil is selected. Do not use this demo to collect
-wallet addresses, banking details, or real payments.
+Rewards, referrals, rankings, support messages, and payment-method lists are
+illustrative or local-only and are not submitted to Supabase. Only the signed-in
+profile's first name, last name, and country are saved. Pix is shown when Brazil
+is selected. Do not use this demo to collect wallet addresses, banking details,
+or real payments.

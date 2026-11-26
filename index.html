@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#050607">
     <title>TrustGift — Member area</title>
-    <link rel="stylesheet" href="styles.css?v=3">
+    <link rel="stylesheet" href="styles.css?v=5">
   </head>
   <body>
     <header class="site-header">
@@ -23,6 +23,7 @@
         <a class="dashboard-only" href="#gifts">♙&nbsp; Gifts</a>
         <a class="dashboard-only" href="#referrals">♧&nbsp; Referrals</a>
         <a class="dashboard-only" href="#support">◎&nbsp; Support</a>
+        <a class="dashboard-only" href="#profile">♙&nbsp; Profile</a>
       </nav>
       <div class="header-actions">
         <div class="language-switch" aria-label="Choose language">
@@ -84,6 +85,159 @@
           </div>
           <div class="levels-grid" id="levels-grid"></div>
         </section>
+      </section>
+
+      <section id="gifts-view" class="view page-view" hidden>
+        <section class="rewards-hero">
+          <div class="rewards-heading">
+            <span class="eyebrow">BUILDERS &amp; CHAMPIONS PROGRAM</span>
+            <h1>Support gifts &amp; rewards</h1>
+            <p>While you are an active Bronze member, every 5 active referrals earns you a gift offered by Support. Once the Bronze level is completed, this gift no longer applies.</p>
+          </div>
+          <div class="rewards-summary">
+            <div class="stat-card"><span>TOTAL GIFTS</span><strong>0</strong></div>
+            <div class="stat-card"><span>ACTIVE REFERRALS</span><strong id="gifts-referral-count">0</strong></div>
+          </div>
+          <div class="milestone">
+            <div><strong>✧&nbsp; Progress toward the milestone of 5 referrals</strong><strong><span id="milestone-count">0</span> / 5 referrals &nbsp; (5 left)</strong></div>
+            <div class="milestone-track"><span id="milestone-progress"></span></div>
+          </div>
+        </section>
+        <div class="eligibility-note" id="reward-eligibility">
+          <span class="note-icon">ⓘ</span>
+          <div><strong>You are not eligible for the referral gift</strong><p>Join the Bronze level to become eligible for the referral gift.</p><a href="#dashboard">Join the Bronze level →</a></div>
+        </div>
+        <div class="rewards-columns">
+          <div class="rewards-history">
+            <section class="surface-card"><h2>♙&nbsp; Gifts awaiting delivery (0)</h2><p class="empty-copy">No pending gift. Refer 5 active friends to unlock your next reward!</p></section>
+            <section class="surface-card"><h2>✓&nbsp; Delivered gifts history (0)</h2><p class="empty-copy">No past delivery yet.</p></section>
+          </div>
+          <aside class="surface-card hall-of-fame">
+            <h2>🏆&nbsp; Hall of Fame</h2>
+            <ol>
+              <li><span class="rank-number gold">1</span><span><strong>@ExampleOne</strong><small>ID: DEMO0001</small></span><strong>0<small>REFERRALS</small></strong></li>
+              <li><span class="rank-number silver">2</span><span><strong>@ExampleTwo</strong><small>ID: DEMO0002</small></span><strong>0<small>REFERRALS</small></strong></li>
+              <li><span class="rank-number bronze">3</span><span><strong>@ExampleThree</strong><small>ID: DEMO0003</small></span><strong>0<small>REFERRALS</small></strong></li>
+            </ol>
+            <p class="demo-disclaimer">Illustrative demo data</p>
+          </aside>
+        </div>
+      </section>
+
+      <section id="referrals-view" class="view page-view" hidden>
+        <div class="narrow-page">
+          <div class="page-title"><span class="page-icon">♧</span><div><h1>My referrals</h1><p>A referral becomes active as soon as they take their place on the Bronze level.</p></div></div>
+          <div class="referral-stats">
+            <article class="surface-card"><strong id="referrals-total">0</strong><span>Referrals</span></article>
+            <article class="surface-card"><strong id="referrals-active">0</strong><span>Active</span></article>
+            <article class="surface-card"><strong id="referrals-inactive">0</strong><span>Not active yet</span></article>
+          </div>
+          <section class="surface-card invite-panel">
+            <div class="invite-panel-heading"><div><strong>Your invite link</strong><code id="referrals-link">Sign in to view your invite link</code></div><button class="button secondary-copy" type="button">▢&nbsp; Copy</button></div>
+            <div class="invite-progress-label"><span>Toward the gift of 5 active referrals</span><span id="referrals-progress-label">0/5</span></div>
+            <div class="milestone-track"><span id="referrals-progress"></span></div>
+            <p>Join the Bronze level to become eligible for the referral gift. <a href="#gifts">See my gifts</a></p>
+          </section>
+          <div class="filter-tabs" role="tablist" aria-label="Filter referrals">
+            <button type="button" class="filter-tab active" data-filter="all">All</button>
+            <button type="button" class="filter-tab" data-filter="active">Active</button>
+            <button type="button" class="filter-tab" data-filter="inactive">Not active yet</button>
+          </div>
+          <section class="surface-card referral-empty" id="referral-list"><p>You have no referrals yet. Share your invite link!</p></section>
+        </div>
+      </section>
+
+      <section id="leaderboard-view" class="view page-view" hidden>
+        <div class="narrow-page leaderboard-page">
+          <div class="leaderboard-title"><span>🏆</span><h1>Top sponsors</h1><p>The members who sponsored the most active referrals. A referral becomes active as soon as they join the Bronze level.</p></div>
+          <div class="surface-card leaderboard-table-wrap">
+            <table class="leaderboard-table">
+              <thead><tr><th>RANK</th><th>MEMBER</th><th>COUNTRY</th><th>ACTIVE REFERRALS</th></tr></thead>
+              <tbody>
+                <tr><td class="medal">♛</td><td>@ExampleOne</td><td>US&nbsp; United States</td><td>♧&nbsp; 26</td></tr>
+                <tr><td class="medal">♢</td><td>@ExampleTwo</td><td>US&nbsp; United States</td><td>♧&nbsp; 23</td></tr>
+                <tr><td class="medal">♢</td><td>@ExampleThree</td><td>HT&nbsp; Haiti</td><td>♧&nbsp; 23</td></tr>
+                <tr><td>#4</td><td>@ExampleFour</td><td>US&nbsp; United States</td><td>♧&nbsp; 19</td></tr>
+                <tr><td>#5</td><td>@ExampleFive</td><td>HT&nbsp; Haiti</td><td>♧&nbsp; 17</td></tr>
+              </tbody>
+            </table>
+            <p class="demo-disclaimer">Illustrative demo data — not live member results</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="support-view" class="view page-view" hidden>
+        <div class="support-page">
+          <section class="surface-card support-chat">
+            <div class="chat-messages" id="chat-messages"><p>No messages yet. Ask your question: reservation, payment, dispute, account…</p></div>
+            <div class="chat-compose">
+              <label class="attach-button" for="support-attachment" aria-label="Attach file">⌕</label>
+              <input id="support-attachment" type="file" accept=".jpg,.jpeg,.png,.gif,.webp,.pdf" hidden>
+              <textarea id="support-message" rows="2" maxlength="2000" placeholder="Your message to Support... (Ctrl + Enter to send)"></textarea>
+              <button class="send-message" id="send-support-message" type="button" aria-label="Send message" disabled>➤</button>
+            </div>
+            <p class="upload-hint">Images (JPG, PNG, GIF, WebP) or PDF · 8 MB max · drag and drop works in the live system.</p>
+            <p class="support-status">Support messaging is a visual demo; messages and attachments are not sent or saved.</p>
+          </section>
+          <p class="safety-note">For your safety, Support will never contact you by phone or WhatsApp. Keep all exchanges on this page.</p>
+        </div>
+      </section>
+
+      <section id="profile-view" class="view page-view" hidden>
+        <div class="profile-page">
+          <form class="surface-card profile-section" id="profile-info-form">
+            <div class="profile-section-title"><h2>♙&nbsp; Information</h2><p>First and last name are only visible to you and Support.</p></div>
+            <div class="field-row">
+              <label>First name<input name="firstName" autocomplete="given-name"></label>
+              <label>Last name<input name="lastName" autocomplete="family-name"></label>
+              <label>Username<input name="username" readonly></label>
+              <label>Country<select name="country" id="profile-country"><option>Brazil</option><option>Canada</option><option>France</option><option>Haiti</option><option>Spain</option><option>United States</option></select></label>
+            </div>
+            <p class="profile-private-details" id="profile-private-details">Sign in to view your email and invite code.</p>
+            <p class="auth-status" id="profile-info-status" role="status"></p>
+            <button class="button save-button" type="submit">Save</button>
+          </form>
+
+          <form class="surface-card profile-section" id="profile-contact-form">
+            <div class="profile-section-title"><h2>☎&nbsp; Contact</h2><p>Only shown to the member who reserves a place to offer you a gift.</p></div>
+            <div class="field-row contact-fields">
+              <label>Phone<span class="phone-inputs"><select name="phoneCountry" aria-label="Phone country code"><option value="+1">+1</option><option value="+33">+33</option><option value="+55">+55</option></select><input name="phone" type="tel" placeholder="Number"></span></label>
+              <label>WhatsApp<span class="phone-inputs"><select name="whatsappCountry" aria-label="WhatsApp country code"><option value="+1">+1</option><option value="+33">+33</option><option value="+55">+55</option></select><input name="whatsapp" type="tel" placeholder="Number"></span></label>
+            </div>
+            <p class="field-hint">Contact details are demo-only and are not saved.</p>
+            <button class="button save-button" type="submit">Save</button>
+          </form>
+
+          <section class="surface-card profile-section">
+            <div class="profile-section-title"><h2>▣&nbsp; How you receive gifts</h2><p>Givers see your default method first.</p></div>
+            <div class="profile-method-list" id="profile-method-list"><p class="profile-empty">No payment methods added.</p></div>
+            <div class="payment-box profile-payment-box">
+              <div class="payment-tabs profile-payment-tabs" role="tablist" aria-label="Add payment method">
+                <button type="button" class="payment-tab profile-payment-tab active" data-profile-method="Crypto">₿&nbsp; Crypto</button>
+                <button type="button" class="payment-tab profile-payment-tab" data-profile-method="Zelle">ϟ&nbsp; Zelle</button>
+                <button type="button" class="payment-tab profile-payment-tab" data-profile-method="Cash App">$&nbsp; Cash App</button>
+                <button type="button" class="payment-tab profile-payment-tab" data-profile-method="MonCash">▣&nbsp; MonCash</button>
+                <button type="button" class="payment-tab profile-payment-tab" data-profile-method="NatCash">▣&nbsp; NatCash</button>
+                <button type="button" class="payment-tab profile-payment-tab" data-profile-method="Pix" hidden>▣&nbsp; Pix</button>
+              </div>
+              <div class="payment-options" id="profile-payment-options"><p>1. Choose the crypto</p><button class="choice selected" type="button">Tether (USDT)</button><button class="choice" type="button">USD Coin (USDC)</button></div>
+              <div class="payment-detail" id="profile-payment-detail" hidden><label id="profile-payment-label">Account detail<input autocomplete="off" placeholder="Enter your payment details"></label></div>
+              <div class="profile-payment-actions"><button class="cancel-method" id="cancel-profile-method" type="button" hidden>Cancel</button><button class="button add-method" id="add-profile-method" type="button">＋&nbsp; Add</button></div>
+            </div>
+            <p class="field-hint">Payment details are demo-only and are not saved to Supabase.</p>
+          </section>
+
+          <form class="surface-card profile-section" id="password-form">
+            <div class="profile-section-title"><h2>⚿&nbsp; Password</h2></div>
+            <div class="field-row password-row">
+              <label>Current password<input name="currentPassword" type="password" autocomplete="current-password" placeholder="Current password" required></label>
+              <label>New password<input name="newPassword" type="password" autocomplete="new-password" placeholder="New password (8 characters, letter and number)" minlength="8" required></label>
+              <label>Confirm<input name="confirmPassword" type="password" autocomplete="new-password" placeholder="Confirm new password" minlength="8" required></label>
+            </div>
+            <p class="field-hint">Password changes are unavailable until you sign in to a configured Supabase project.</p>
+            <button class="button save-button" type="submit">Change password</button>
+          </form>
+        </div>
       </section>
 
       <section id="join-view" class="view form-view" hidden>
@@ -173,6 +327,6 @@
     <button class="back-to-top" type="button" aria-label="Back to top">↑</button>
     <div class="toast" role="status" aria-live="polite"></div>
     <script src="supabase-config.js?v=1"></script>
-    <script src="app.js?v=pix"></script>
+    <script src="app.js?v=member-pages-3"></script>
   </body>
 </html>
