@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#050607">
     <title>TrustGift — Member area</title>
-    <link rel="stylesheet" href="styles.css?v=6">
+    <link rel="stylesheet" href="styles.css?v=7">
   </head>
   <body>
     <header class="site-header">
@@ -24,6 +24,7 @@
         <a class="dashboard-only" href="#referrals">♧&nbsp; Referrals</a>
         <a class="dashboard-only" href="#support">◎&nbsp; Support</a>
         <a class="support-agent-only" id="support-admin-link" href="#support-admin" hidden>▤&nbsp; Support inbox</a>
+        <a class="admin-only" id="admin-tools-link" href="#admin-tools" hidden>⚙&nbsp; Admin</a>
         <a class="dashboard-only" href="#profile">♙&nbsp; Profile</a>
       </nav>
       <div class="header-actions">
@@ -191,6 +192,28 @@
         </div>
       </section>
 
+      <section id="admin-tools-view" class="view page-view" hidden>
+        <div class="admin-tools">
+          <div class="page-title"><span class="page-icon">⚙</span><div><h1>Administrator</h1><p>Invite support staff securely</p></div></div>
+          <section class="surface-card admin-invitations">
+            <div class="profile-section-title"><h2>Support invitations</h2><p>Only the project owner can grant administrator access. This panel creates support-agent invitations only.</p></div>
+            <form id="support-invitation-form">
+              <label for="support-invitation-email">Staff e-mail address</label>
+              <div class="admin-invite-row">
+                <input id="support-invitation-email" name="email" type="email" autocomplete="email" placeholder="agent@example.com" required>
+                <button class="button" type="submit">Create invitation link</button>
+              </div>
+            </form>
+            <p class="field-hint">The invited person completes the regular sign-up, accepts the terms, and confirms this e-mail. The link expires in 7 days; send it to them yourself.</p>
+            <p class="auth-status" id="support-invitation-status" role="status"></p>
+            <div class="admin-invite-result" id="support-invitation-result" hidden>
+              <a id="support-invitation-link" href="#" target="_blank" rel="noopener noreferrer"></a>
+              <button class="button secondary-copy" id="copy-support-invitation" type="button">Copy invitation link</button>
+            </div>
+          </section>
+        </div>
+      </section>
+
       <section id="profile-view" class="view page-view" hidden>
         <div class="profile-page">
           <form class="surface-card profile-section" id="profile-info-form">
@@ -199,7 +222,7 @@
               <label>First name<input name="firstName" autocomplete="given-name"></label>
               <label>Last name<input name="lastName" autocomplete="family-name"></label>
               <label>Username<input name="username" readonly></label>
-              <label>Country<select name="country" id="profile-country"><option>Brazil</option><option>Canada</option><option>France</option><option>Haiti</option><option>Spain</option><option>United States</option></select></label>
+              <label>Country<select name="country" id="profile-country"><option value="Brazil">Brazil</option><option value="Canada">Canada</option><option value="France">France</option><option value="Haiti">Haiti</option><option value="Spain">Spain</option><option value="United States">United States</option></select></label>
             </div>
             <label class="privacy-setting"><input type="checkbox" id="leaderboard-opt-in" name="leaderboardOptIn"> Show my username and country in the public leaderboard</label>
             <p class="field-hint">Only members who opt in are listed. You can change this anytime.</p>
@@ -258,6 +281,10 @@
             <h1>Join TrustGift</h1>
             <p>« Together, we achieve more »</p>
           </div>
+          <div class="support-invite-notice" id="support-invite-notice" hidden>
+            <strong>Support staff invitation</strong>
+            <p>Use the invited e-mail address. Your Support access is activated after account creation and e-mail confirmation.</p>
+          </div>
           <div class="field-row">
             <label>First name<input name="firstName" autocomplete="given-name" placeholder="John" required></label>
             <label>Last name<input name="lastName" autocomplete="family-name" placeholder="Doe" required></label>
@@ -271,7 +298,7 @@
             <label>Confirm the password<div class="password-field"><input name="confirmPassword" type="password" autocomplete="new-password" placeholder="••••••••" minlength="8" required><button class="show-password" type="button" aria-label="Show password">◎</button></div></label>
           </div>
           <label>Referral code (optional)<input class="referral-code" name="referralCode" autocomplete="off"></label>
-          <label>Country<select name="country" id="country-select" required><option value="">Choose your country</option><option>Brazil</option><option>Canada</option><option>France</option><option>Haiti</option><option>Spain</option><option>United States</option></select></label>
+          <label>Country<select name="country" id="country-select" required><option value="">Choose your country</option><option value="Brazil">Brazil</option><option value="Canada">Canada</option><option value="France">France</option><option value="Haiti">Haiti</option><option value="Spain">Spain</option><option value="United States">United States</option></select></label>
           <div class="field-row phone-row">
             <label>Phone (optional)<span class="phone-inputs"><select name="phoneCountry" aria-label="Phone country"><option value="">Country</option><option value="+1">+1</option><option value="+33">+33</option><option value="+34">+34</option><option value="+55">+55</option><option value="+509">+509</option></select><input name="phone" placeholder="Number" type="tel"></span></label>
             <label>WhatsApp (optional)<span class="phone-inputs"><select name="whatsappCountry" aria-label="WhatsApp country"><option value="">Country</option><option value="+1">+1</option><option value="+33">+33</option><option value="+34">+34</option><option value="+55">+55</option><option value="+509">+509</option></select><input name="whatsapp" placeholder="Number" type="tel"></span></label>
@@ -338,6 +365,7 @@
     <button class="back-to-top" type="button" aria-label="Back to top">↑</button>
     <div class="toast" role="status" aria-live="polite"></div>
     <script src="supabase-config.js?v=1"></script>
-    <script src="app.js?v=member-workflows-4"></script>
+    <script src="translations.js?v=1"></script>
+    <script src="app.js?v=admin-i18n-5"></script>
   </body>
 </html>

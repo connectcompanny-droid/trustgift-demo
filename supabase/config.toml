@@ -1,0 +1,2 @@
+[functions.support-invitations]
+verify_jwt = true

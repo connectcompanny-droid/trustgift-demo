@@ -1,3 +1,5 @@
+const t = (value, parameters) => window.TRUSTGIFT_I18N?.translate(value, parameters) ?? value;
+
 const levels = [
   { metal: "Bronze", amount: "$20", received: "$100", position: true },
   { metal: "Silver", amount: "$60", received: "$300" },
@@ -44,6 +46,7 @@ const pageViews = {
   leaderboard: document.querySelector("#leaderboard-view"),
   support: document.querySelector("#support-view"),
   "support-admin": document.querySelector("#support-admin-view"),
+  "admin-tools": document.querySelector("#admin-tools-view"),
   profile: document.querySelector("#profile-view"),
   join: joinView,
   signin: signinView
@@ -51,6 +54,9 @@ const pageViews = {
 const toast = document.querySelector(".toast");
 const referralCodeInput = document.querySelector('[name="referralCode"]');
 const referralFromUrl = new URLSearchParams(location.search).get("ref");
+let pendingSupportInviteToken = new URLSearchParams(location.search).get("support_invite");
+let supportInviteAttemptedFor = null;
+if (pendingSupportInviteToken && !location.hash) location.hash = "#join";
 if (referralFromUrl) referralCodeInput.value = referralFromUrl.toUpperCase();
 
 let supabaseClient = null;
@@ -69,6 +75,10 @@ function isSupportAgent() {
   return currentUser?.app_metadata?.support_agent === true;
 }
 
+function isTrustGiftAdmin() {
+  return currentUser?.app_metadata?.trustgift_admin === true;
+}
+
 function showToast(message) {
   toast.textContent = message;
   toast.classList.add("show");
@@ -80,6 +90,7 @@ function renderRoute() {
   const requestedRoute = location.hash.slice(1) || "dashboard";
   let route = Object.hasOwn(pageViews, requestedRoute) ? requestedRoute : "dashboard";
   if (route === "support-admin" && !isSupportAgent()) route = "support";
+  if (route === "admin-tools" && !isTrustGiftAdmin()) route = "dashboard";
   const isJoin = route === "join";
   const isSignin = route === "signin";
   Object.entries(pageViews).forEach(([name, view]) => {
@@ -89,7 +100,10 @@ function renderRoute() {
   body.classList.toggle("auth-view", isJoin || isSignin);
   body.classList.toggle("authenticated", Boolean(currentUser));
   body.classList.toggle("support-agent", isSupportAgent());
+  body.classList.toggle("trustgift-admin", isTrustGiftAdmin());
   document.querySelector("#support-admin-link").hidden = !isSupportAgent();
+  document.querySelector("#admin-tools-link").hidden = !isTrustGiftAdmin();
+  document.querySelector("#support-invite-notice").hidden = !(isJoin && pendingSupportInviteToken);
   const titles = {
     dashboard: "TrustGift — Member area",
     gifts: "Gifts & rewards — TrustGift",
@@ -98,10 +112,11 @@ function renderRoute() {
     support: "Support — TrustGift",
     "support-admin": "Support inbox — TrustGift",
     profile: "My profile — TrustGift",
+    "admin-tools": "Administrator — TrustGift",
     join: "Join TrustGift",
     signin: "Sign in — TrustGift"
   };
-  document.title = titles[route];
+  document.title = t(titles[route]);
   document.querySelectorAll(".main-nav a[href^='#']").forEach(link => {
     link.classList.toggle("active", link.getAttribute("href") === `#${route}`);
   });
@@ -109,6 +124,7 @@ function renderRoute() {
   document.querySelector(".menu-toggle").setAttribute("aria-expanded", "false");
   window.scrollTo(0, 0);
 }
+document.addEventListener("trustgift-language-change", renderRoute);
 
 window.addEventListener("hashchange", () => {
   renderRoute();
@@ -240,9 +256,51 @@ async function applySession(session) {
   try {
     await loadProfile(session.user);
     await loadActiveRouteData();
+    await redeemSupportInvitation();
   } catch (error) {
     console.error("Could not load the signed-in profile.", error);
-    showToast(`Could not load your profile: ${authErrorMessage(error)}`);
+    showToast(t("Could not load your profile: {error}", { error: authErrorMessage(error) }));
+  }
+}
+
+async function throwSupportFunctionError(error) {
+  if (error?.context instanceof Response) {
+    let responseBody = null;
+    try {
+      responseBody = await error.context.clone().json();
+    } catch (parseError) {
+      console.warn("Could not parse the support invitation error response.", parseError);
+    }
+    if (typeof responseBody?.error === "string") throw new Error(responseBody.error);
+  }
+  throw error;
+}
+
+async function redeemSupportInvitation() {
+  if (!pendingSupportInviteToken || !currentUser || !currentUser.email_confirmed_at
+      || supportInviteAttemptedFor === currentUser.id) return;
+
+  supportInviteAttemptedFor = currentUser.id;
+  try {
+    const { data, error } = await supabaseClient.functions.invoke("support-invitations", {
+      body: { action: "redeem", token: pendingSupportInviteToken }
+    });
+    if (error) await throwSupportFunctionError(error);
+    if (data?.ok !== true) throw new Error("The support invitation could not be verified.");
+
+    const { data: refreshed, error: refreshError } = await supabaseClient.auth.refreshSession();
+    if (refreshError) throw refreshError;
+    currentUser = refreshed.session?.user ?? currentUser;
+    pendingSupportInviteToken = null;
+    const cleanUrl = new URL(window.location.href);
+    cleanUrl.searchParams.delete("support_invite");
+    window.history.replaceState(null, "", cleanUrl.toString());
+    renderRoute();
+    if (isSupportAgent()) location.hash = "#support-admin";
+    showToast(t("Support access activated."));
+  } catch (error) {
+    console.error("Could not redeem the support invitation.", error);
+    showToast(t("Could not activate support access: {error}", { error: authErrorMessage(error) }));
   }
 }
 
@@ -263,6 +321,9 @@ async function initializeSupabase() {
     publicSiteUrl.search = "";
     publicSiteUrl.hash = "";
     publicSiteUrl.pathname = `${publicSiteUrl.pathname.replace(/\/+$/, "")}/`;
+    if (pendingSupportInviteToken) {
+      publicSiteUrl.searchParams.set("support_invite", pendingSupportInviteToken);
+    }
     authRedirectUrl = publicSiteUrl.toString();
 
     const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
@@ -294,7 +355,7 @@ async function initializeSupabase() {
       window.setTimeout(() => {
         applySession(session).catch(error => {
           console.error("Could not update the signed-in profile.", error);
-          showToast(`Could not load your profile: ${authErrorMessage(error)}`);
+          showToast(t("Could not load your profile: {error}", { error: authErrorMessage(error) }));
         });
       }, 0);
     });
@@ -330,8 +391,7 @@ document.querySelector(".copy-button").addEventListener("click", async event => 
 
 document.querySelector(".back-to-top").addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
 document.querySelectorAll(".language").forEach(button => button.addEventListener("click", () => {
-  document.querySelectorAll(".language").forEach(item => item.classList.toggle("selected", item === button));
-  showToast(`${button.dataset.lang} selected for this demo.`);
+  window.TRUSTGIFT_I18N?.setLanguage(button.dataset.lang);
 }));
 
 document.querySelectorAll(".level-action:not(:disabled)").forEach(button => button.addEventListener("click", () => {
@@ -808,6 +868,66 @@ async function loadActiveRouteData() {
     await loadSupportInbox();
   }
 }
+
+const supportInvitationForm = document.querySelector("#support-invitation-form");
+supportInvitationForm.addEventListener("submit", async event => {
+  event.preventDefault();
+  const status = document.querySelector("#support-invitation-status");
+  const result = document.querySelector("#support-invitation-result");
+  const submitButton = supportInvitationForm.querySelector('button[type="submit"]');
+  if (!supabaseClient || !schemaReady || !currentUser || !isTrustGiftAdmin()) {
+    status.textContent = t("Only a TrustGift administrator can create support invitations.");
+    return;
+  }
+
+  submitButton.disabled = true;
+  result.hidden = true;
+  status.textContent = t("Creating invitation link…");
+  try {
+    const { data, error } = await supabaseClient.functions.invoke("support-invitations", {
+      body: {
+        action: "create",
+        email: String(new FormData(supportInvitationForm).get("email")).trim()
+      }
+    });
+    if (error) await throwSupportFunctionError(error);
+    if (typeof data?.token !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(data.token)) {
+      throw new Error("The invitation service returned an invalid link.");
+    }
+
+    const inviteUrl = new URL(window.TRUSTGIFT_SUPABASE_CONFIG.siteUrl);
+    inviteUrl.search = "";
+    inviteUrl.searchParams.set("support_invite", data.token);
+    inviteUrl.hash = "join";
+    const link = document.querySelector("#support-invitation-link");
+    link.href = inviteUrl.toString();
+    link.textContent = inviteUrl.toString();
+    result.hidden = false;
+    status.textContent = t("Invitation link created. Share it with the invited person. It expires in 7 days.");
+    supportInvitationForm.reset();
+  } catch (error) {
+    console.error("Could not create the support invitation.", error);
+    status.textContent = t("Could not create support invitation: {error}", {
+      error: authErrorMessage(error)
+    });
+  } finally {
+    submitButton.disabled = false;
+  }
+});
+
+document.querySelector("#copy-support-invitation").addEventListener("click", async () => {
+  const status = document.querySelector("#support-invitation-status");
+  const link = document.querySelector("#support-invitation-link").href;
+  try {
+    await navigator.clipboard.writeText(link);
+    status.textContent = t("Invitation link copied.");
+  } catch (error) {
+    console.error("Could not copy the support invitation link.", error);
+    status.textContent = t("Could not copy invitation link: {error}", {
+      error: authErrorMessage(error)
+    });
+  }
+});
 
 const profileInfoForm = document.querySelector("#profile-info-form");
 profileInfoForm.addEventListener("submit", async event => {
