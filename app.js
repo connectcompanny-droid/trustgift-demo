@@ -1390,9 +1390,21 @@ const joinForm = document.querySelector("#join-form");
 const createAccount = document.querySelector(".create-account");
 const terms = [...document.querySelectorAll(".check-row input")];
 function updateSubmitState() {
-  createAccount.disabled = !terms.every(input => input.checked);
+  const termsAccepted = terms.every(input => input.checked);
+  const inputsValid = [...joinForm.querySelectorAll("input, select")].every(input => input.validity.valid);
+  const password = joinForm.elements.password.value;
+  const passwordValid = /[A-Za-z]/.test(password)
+    && /\d/.test(password)
+    && password === joinForm.elements.confirmPassword.value;
+  const contactsValid = (!joinForm.elements.phone.value.trim() || joinForm.elements.phoneCountry.value)
+    && (!joinForm.elements.whatsapp.value.trim() || joinForm.elements.whatsappCountry.value);
+  const ready = termsAccepted && inputsValid && passwordValid && contactsValid;
+
+  createAccount.disabled = !termsAccepted;
+  createAccount.classList.toggle("ready", ready);
 }
-terms.forEach(input => input.addEventListener("change", updateSubmitState));
+joinForm.addEventListener("input", updateSubmitState);
+joinForm.addEventListener("change", updateSubmitState);
 updateSubmitState();
 
 joinForm.addEventListener("submit", event => {

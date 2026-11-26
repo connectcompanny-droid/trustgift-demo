@@ -179,6 +179,7 @@ h1, h2, p { margin-top: 0; }
 .check-row a, .signin-prompt a { color: var(--lime); font-weight: 700; }
 .legal-note { margin: 9px 0 28px; }
 .create-account { width: 100%; min-height: 48px; border-color: #26272a; color: #7d8492; background: #252629; }
+.create-account.ready:not(:disabled) { border-color: var(--lime); color: #111; background: var(--lime); }
 .create-account:disabled { cursor: not-allowed; opacity: .8; }
 .signin-prompt { margin: 22px 0 0; color: #9baac0; text-align: center; font-size: 12px; }
 
