@@ -750,7 +750,6 @@ function renderLeaderboard(records) {
     hallOfFame.append(emptyItem);
     return;
   }
-  const countryCodes = { Brazil: "BR", Canada: "CA", France: "FR", Haiti: "HT", Spain: "ES", "United States": "US" };
   records.forEach(record => {
     const positionNumber = Number(record.position);
     const row = document.createElement("tr");
@@ -761,7 +760,7 @@ function renderLeaderboard(records) {
     username.dataset.i18nIgnore = "";
     username.textContent = `@${record.username}`;
     const country = document.createElement("td");
-    country.textContent = `${countryCodes[record.country] ?? ""} ${record.country}`.trim();
+    country.textContent = `${window.TRUSTGIFT_COUNTRIES?.isoFor(record.country) ?? ""} ${record.country}`.trim();
     const referrals = document.createElement("td");
     referrals.textContent = `♧ ${record.active_referrals}`;
     row.append(position, username, country, referrals);

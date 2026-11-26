@@ -12,6 +12,7 @@ no payment is collected, and no payout or level-queue rules are active.
    - [`supabase/migrations/20261126163000_member_workflows.sql`](./supabase/migrations/20261126163000_member_workflows.sql)
    - [`supabase/migrations/20261126170400_support_agent_invitations.sql`](./supabase/migrations/20261126170400_support_agent_invitations.sql)
    - [`supabase/migrations/20261126173700_support_agent_management.sql`](./supabase/migrations/20261126173700_support_agent_management.sql)
+   - [`supabase/migrations/20261126193000_all_phone_country_codes.sql`](./supabase/migrations/20261126193000_all_phone_country_codes.sql)
 3. Copy the project URL and the **publishable key** (or legacy `anon` key)
    from Project Settings → API into `supabase-config.js`. Set `siteUrl` to the
    public HTTPS URL of this app; email confirmations use this value instead of
@@ -85,7 +86,7 @@ or remove support-agent access. Support authorization is checked against the
 without waiting for an existing JWT to expire. Reusing an accepted or expired
 invitation never restores access. The invitation system cannot grant
 administrator access; only the Supabase project owner can provision or change
-the administrator claim. Apply all four migrations before deploying/using the
+the administrator claim. Apply all migrations before deploying/using the
 function.
 
 The registration form links to the demo Terms of Use and Privacy Policy
