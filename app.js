@@ -36,7 +36,15 @@ grid.innerHTML = levels.map((level, index) => {
 const body = document.body;
 const dashboardView = document.querySelector("#dashboard-view");
 const joinView = document.querySelector("#join-view");
+const signinView = document.querySelector("#signin-view");
 const toast = document.querySelector(".toast");
+const referralCodeInput = document.querySelector('[name="referralCode"]');
+const referralFromUrl = new URLSearchParams(location.search).get("ref");
+if (referralFromUrl) referralCodeInput.value = referralFromUrl.toUpperCase();
+
+let supabaseClient = null;
+let currentUser = null;
+let currentProfile = null;
 let toastTimer;
 
 function showToast(message) {
@@ -47,11 +55,15 @@ function showToast(message) {
 }
 
 function renderRoute() {
-  const isJoin = location.hash === "#join";
-  dashboardView.hidden = isJoin;
+  const route = location.hash.slice(1);
+  const isJoin = route === "join";
+  const isSignin = route === "signin";
+  dashboardView.hidden = isJoin || isSignin;
   joinView.hidden = !isJoin;
-  body.classList.toggle("view-dashboard", !isJoin);
-  document.title = isJoin ? "Join TrustGift" : "TrustGift — Member area";
+  signinView.hidden = !isSignin;
+  body.classList.toggle("view-dashboard", !isJoin && !isSignin);
+  body.classList.toggle("authenticated", Boolean(currentUser));
+  document.title = isJoin ? "Join TrustGift" : isSignin ? "Sign in — TrustGift" : "TrustGift — Member area";
   document.querySelector(".main-nav").classList.remove("open");
   document.querySelector(".menu-toggle").setAttribute("aria-expanded", "false");
   window.scrollTo(0, 0);
@@ -60,6 +72,112 @@ function renderRoute() {
 window.addEventListener("hashchange", renderRoute);
 renderRoute();
 
+function setAuthStatus(id, message) {
+  document.querySelector(`#${id}`).textContent = message;
+}
+
+function authErrorMessage(error) {
+  if (error?.code === "23505" || /duplicate key|already registered/i.test(error?.message ?? "")) {
+    return "That username or e-mail is already in use.";
+  }
+  if (/referral code is invalid/i.test(error?.message ?? "")) {
+    return "That referral code was not found. Check it and try again.";
+  }
+  return error?.message || "An unexpected authentication error occurred.";
+}
+
+function setSignedOutView() {
+  currentUser = null;
+  currentProfile = null;
+  body.classList.remove("authenticated");
+  document.querySelector("#welcome-heading").textContent = "Welcome to TrustGift";
+  document.querySelector("#profile-full-name").textContent = "Demo member";
+  document.querySelector("#profile-username").textContent = "@demo";
+  document.querySelector("#referral-link").textContent = "Sign in to view your referral link";
+  document.querySelector("#referral-count").textContent = "0";
+}
+
+async function loadProfile(user) {
+  const { data: profile, error } = await supabaseClient
+    .from("profiles")
+    .select("id, username, first_name, last_name, country, referral_code")
+    .eq("id", user.id)
+    .single();
+  if (error) throw error;
+
+  const { data: referralCount, error: referralError } = await supabaseClient.rpc("my_referral_count");
+  if (referralError) throw referralError;
+
+  currentProfile = profile;
+  document.querySelector("#welcome-heading").textContent = `Good to see you again, ${profile.first_name}`;
+  document.querySelector("#profile-full-name").textContent = `${profile.first_name} ${profile.last_name}`;
+  document.querySelector("#profile-username").textContent = `@${profile.username}`;
+  document.querySelector(".member-account strong").textContent = `@${profile.username}`;
+  document.querySelector(".member-account small").textContent = profile.referral_code;
+  document.querySelector("#referral-count").textContent = String(referralCount ?? 0);
+
+  const referralUrl = new URL(location.pathname, location.origin);
+  referralUrl.searchParams.set("ref", profile.referral_code);
+  referralUrl.hash = "join";
+  document.querySelector("#referral-link").textContent = referralUrl.toString();
+}
+
+async function applySession(session) {
+  if (!session?.user) {
+    setSignedOutView();
+    renderRoute();
+    return;
+  }
+
+  currentUser = session.user;
+  body.classList.add("authenticated");
+  renderRoute();
+  try {
+    await loadProfile(session.user);
+  } catch (error) {
+    console.error("Could not load the signed-in profile.", error);
+    showToast(`Could not load your profile: ${authErrorMessage(error)}`);
+  }
+}
+
+async function initializeSupabase() {
+  const config = window.TRUSTGIFT_SUPABASE_CONFIG;
+  if (!config?.url || !config?.publishableKey) {
+    const message = "Supabase is not connected yet. Add the project URL and publishable key to supabase-config.js, then apply the SQL migration.";
+    setAuthStatus("signup-status", message);
+    setAuthStatus("signin-status", message);
+    return;
+  }
+
+  try {
+    const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+    supabaseClient = createClient(config.url, config.publishableKey, {
+      auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: true }
+    });
+
+    const { data, error } = await supabaseClient.auth.getSession();
+    if (error) throw error;
+    await applySession(data.session);
+    setAuthStatus("signup-status", "Your account and profile are stored securely in Supabase.");
+    setAuthStatus("signin-status", "Sign-in is handled by Supabase Auth.");
+
+    supabaseClient.auth.onAuthStateChange((_event, session) => {
+      window.setTimeout(() => {
+        applySession(session).catch(error => {
+          console.error("Could not update the signed-in profile.", error);
+          showToast(`Could not load your profile: ${authErrorMessage(error)}`);
+        });
+      }, 0);
+    });
+  } catch (error) {
+    console.error("Could not initialize Supabase.", error);
+    setAuthStatus("signup-status", "Could not connect to Supabase. Check the project URL, publishable key, and network connection.");
+    setAuthStatus("signin-status", "Could not connect to Supabase. Check the project URL, publishable key, and network connection.");
+  }
+}
+
+initializeSupabase();
+
 document.querySelector(".menu-toggle").addEventListener("click", event => {
   const nav = document.querySelector(".main-nav");
   nav.classList.toggle("open");
@@ -67,7 +185,11 @@ document.querySelector(".menu-toggle").addEventListener("click", event => {
 });
 
 document.querySelector(".copy-button").addEventListener("click", async event => {
-  const referralLink = "https://trustgift.example/register?ref=1A612B34";
+  const referralLink = document.querySelector("#referral-link").textContent;
+  if (!currentProfile) {
+    showToast("Sign in to get your personal referral link.");
+    return;
+  }
   try {
     await navigator.clipboard.writeText(referralLink);
     event.currentTarget.innerHTML = "✓&nbsp; Copied";
@@ -147,6 +269,10 @@ updateSubmitState();
 
 joinForm.addEventListener("submit", event => {
   event.preventDefault();
+  if (!supabaseClient) {
+    showToast("Connect Supabase before creating an account.");
+    return;
+  }
   const password = joinForm.elements.password.value;
   if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) {
     showToast("Password must include at least one letter and one digit.");
@@ -158,10 +284,77 @@ joinForm.addEventListener("submit", event => {
     joinForm.elements.confirmPassword.focus();
     return;
   }
-  showToast("Account created in demo mode — no data was sent.");
+  const formData = new FormData(joinForm);
+  createAccount.disabled = true;
+  setAuthStatus("signup-status", "Creating your account…");
+  supabaseClient.auth.signUp({
+    email: String(formData.get("email")).trim(),
+    password,
+    options: {
+      emailRedirectTo: `${location.origin}${location.pathname}#signin`,
+      data: {
+        first_name: String(formData.get("firstName")).trim(),
+        last_name: String(formData.get("lastName")).trim(),
+        username: String(formData.get("username")).trim().toLowerCase(),
+        country: String(formData.get("country")).trim(),
+        referral_code: String(formData.get("referralCode")).trim().toUpperCase(),
+        legal_acceptance: {
+          age_confirmed: terms[0].checked,
+          gift_risk_acknowledged: terms[1].checked,
+          terms_accepted: terms[2].checked
+        }
+      }
+    }
+  }).then(({ data, error }) => {
+    if (error) throw error;
+    if (data.session) {
+      location.hash = "#dashboard";
+      showToast("Account created successfully.");
+    } else {
+      location.hash = "#signin";
+      showToast("Account created. Check your email to confirm it before signing in.");
+    }
+  }).catch(error => {
+    console.error("Account creation failed.", error);
+    setAuthStatus("signup-status", authErrorMessage(error));
+    showToast(`Could not create your account: ${authErrorMessage(error)}`);
+  }).finally(() => {
+    updateSubmitState();
+  });
 });
 
-document.querySelectorAll('a[href="#signin"]').forEach(link => link.addEventListener("click", event => {
+document.querySelector("#signin-form").addEventListener("submit", async event => {
   event.preventDefault();
-  showToast("Sign in is not connected in this demo.");
-}));
+  if (!supabaseClient) {
+    showToast("Connect Supabase before signing in.");
+    return;
+  }
+
+  const formData = new FormData(event.currentTarget);
+  const submitButton = event.currentTarget.querySelector('button[type="submit"]');
+  submitButton.disabled = true;
+  setAuthStatus("signin-status", "Signing in…");
+  try {
+    const { error } = await supabaseClient.auth.signInWithPassword({
+      email: String(formData.get("email")).trim(),
+      password: String(formData.get("password"))
+    });
+    if (error) throw error;
+    location.hash = "#dashboard";
+  } catch (error) {
+    console.error("Sign-in failed.", error);
+    setAuthStatus("signin-status", authErrorMessage(error));
+    showToast(`Could not sign in: ${authErrorMessage(error)}`);
+  } finally {
+    submitButton.disabled = false;
+  }
+});
+
+document.querySelector("#sign-out").addEventListener("click", async () => {
+  if (!supabaseClient) return;
+  const { error } = await supabaseClient.auth.signOut();
+  if (error) {
+    console.error("Sign-out failed.", error);
+    showToast(`Could not sign out: ${authErrorMessage(error)}`);
+  }
+});
