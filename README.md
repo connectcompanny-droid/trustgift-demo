@@ -22,7 +22,9 @@ process gifts or store payment account details.
    is required. With confirmation enabled, members confirm their email before
    signing in.
 
-The browser client only receives the publishable key. Row-level security
+The browser client checks project health and the migration's read-only
+`is_schema_ready()` function before enabling authentication. The browser
+client only receives the publishable key. Row-level security
 restricts profile and consent reads to their owner; the signup trigger creates
 the initial records. Referral codes are resolved inside the database and the
 referral-count function only returns the signed-in user's count.

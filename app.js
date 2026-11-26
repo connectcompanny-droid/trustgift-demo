@@ -43,6 +43,7 @@ const referralFromUrl = new URLSearchParams(location.search).get("ref");
 if (referralFromUrl) referralCodeInput.value = referralFromUrl.toUpperCase();
 
 let supabaseClient = null;
+let schemaReady = false;
 let currentUser = null;
 let currentProfile = null;
 let toastTimer;
@@ -155,10 +156,24 @@ async function initializeSupabase() {
       auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: true }
     });
 
+    const health = await fetch(`${config.url.replace(/\/+$/, "")}/auth/v1/health`, {
+      headers: { apikey: config.publishableKey }
+    });
+    if (!health.ok) throw new Error(`Supabase returned HTTP ${health.status}`);
+
+    const { data: readiness, error: readinessError } = await supabaseClient.rpc("is_schema_ready");
+    if (readinessError || readiness !== true) {
+      console.error("Supabase is reachable, but its schema migration is not ready.", readinessError);
+      setAuthStatus("signup-status", "Supabase is reachable, but the database migration has not been applied. Run the SQL migration before creating accounts.");
+      setAuthStatus("signin-status", "Supabase is reachable, but the database migration has not been applied. Run the SQL migration before signing in.");
+      return;
+    }
+    schemaReady = true;
+
     const { data, error } = await supabaseClient.auth.getSession();
     if (error) throw error;
     await applySession(data.session);
-    setAuthStatus("signup-status", "Your account and profile are stored securely in Supabase.");
+    setAuthStatus("signup-status", "Supabase is connected and the database schema is ready.");
     setAuthStatus("signin-status", "Sign-in is handled by Supabase Auth.");
 
     supabaseClient.auth.onAuthStateChange((_event, session) => {
@@ -273,6 +288,10 @@ joinForm.addEventListener("submit", event => {
     showToast("Connect Supabase before creating an account.");
     return;
   }
+  if (!schemaReady) {
+    showToast("Apply the Supabase database migration before creating an account.");
+    return;
+  }
   const password = joinForm.elements.password.value;
   if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) {
     showToast("Password must include at least one letter and one digit.");
@@ -327,6 +346,10 @@ document.querySelector("#signin-form").addEventListener("submit", async event =>
   event.preventDefault();
   if (!supabaseClient) {
     showToast("Connect Supabase before signing in.");
+    return;
+  }
+  if (!schemaReady) {
+    showToast("Apply the Supabase database migration before signing in.");
     return;
   }
 

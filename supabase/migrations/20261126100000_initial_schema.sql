@@ -151,3 +151,16 @@ $$;
 
 revoke all on function public.my_referral_count() from public, anon;
 grant execute on function public.my_referral_count() to authenticated;
+
+create or replace function public.is_schema_ready()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select true;
+$$;
+
+revoke all on function public.is_schema_ready() from public;
+grant execute on function public.is_schema_ready() to anon, authenticated;
