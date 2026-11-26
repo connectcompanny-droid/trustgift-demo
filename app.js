@@ -18,10 +18,10 @@ grid.innerHTML = levels.map((level, index) => {
     <h3 class="offer-amount">${level.amount}</h3>
     ${active ? `<div class="line-info">
       <span>You are not in this line yet.</span>
-      <div><span>Current center</span><strong class="active-user">@natalie12</strong></div>
-      <div><span>Board #143 · completion</span><strong>2/7 · 29 %</strong></div>
+      <div><span>Example center</span><strong class="active-user">@examplemember</strong></div>
+      <div><span>Sample board · completion</span><strong>2/7 · 29 %</strong></div>
       <div class="progress-track"><span></span></div>
-      <span class="line-count">♧&nbsp; 784 in line</span>
+      <span class="line-count">♧&nbsp; Example queue: 784</span>
     </div>` : ""}
     <div class="line-info support-info">
       <div><span>♡&nbsp; 5 gifts received at the center:</span><strong>${level.received}</strong></div>
@@ -43,6 +43,7 @@ const pageViews = {
   referrals: document.querySelector("#referrals-view"),
   leaderboard: document.querySelector("#leaderboard-view"),
   support: document.querySelector("#support-view"),
+  "support-admin": document.querySelector("#support-admin-view"),
   profile: document.querySelector("#profile-view"),
   join: joinView,
   signin: signinView
@@ -58,6 +59,15 @@ let currentUser = null;
 let currentProfile = null;
 let toastTimer;
 let authRedirectUrl = "";
+let referralsCache = [];
+let selectedSupportThreadId = null;
+let selectedAdminThreadId = null;
+let selectedAdminThreadStatus = null;
+let supportThreadsCache = [];
+
+function isSupportAgent() {
+  return currentUser?.app_metadata?.support_agent === true;
+}
 
 function showToast(message) {
   toast.textContent = message;
@@ -68,7 +78,8 @@ function showToast(message) {
 
 function renderRoute() {
   const requestedRoute = location.hash.slice(1) || "dashboard";
-  const route = Object.hasOwn(pageViews, requestedRoute) ? requestedRoute : "dashboard";
+  let route = Object.hasOwn(pageViews, requestedRoute) ? requestedRoute : "dashboard";
+  if (route === "support-admin" && !isSupportAgent()) route = "support";
   const isJoin = route === "join";
   const isSignin = route === "signin";
   Object.entries(pageViews).forEach(([name, view]) => {
@@ -77,12 +88,15 @@ function renderRoute() {
   body.classList.toggle("view-dashboard", route === "dashboard");
   body.classList.toggle("auth-view", isJoin || isSignin);
   body.classList.toggle("authenticated", Boolean(currentUser));
+  body.classList.toggle("support-agent", isSupportAgent());
+  document.querySelector("#support-admin-link").hidden = !isSupportAgent();
   const titles = {
     dashboard: "TrustGift — Member area",
     gifts: "Gifts & rewards — TrustGift",
     referrals: "My referrals — TrustGift",
     leaderboard: "Top sponsors — TrustGift",
     support: "Support — TrustGift",
+    "support-admin": "Support inbox — TrustGift",
     profile: "My profile — TrustGift",
     join: "Join TrustGift",
     signin: "Sign in — TrustGift"
@@ -96,7 +110,13 @@ function renderRoute() {
   window.scrollTo(0, 0);
 }
 
-window.addEventListener("hashchange", renderRoute);
+window.addEventListener("hashchange", () => {
+  renderRoute();
+  loadActiveRouteData().catch(error => {
+    console.error("Could not load this page's data.", error);
+    showToast(`Could not load page data: ${authErrorMessage(error)}`);
+  });
+});
 renderRoute();
 
 function setAuthStatus(id, message) {
@@ -129,6 +149,14 @@ function setSignedOutView() {
   document.querySelector("#profile-private-details").textContent = "Sign in to view your email and invite code.";
   document.querySelector("#profile-info-status").textContent = "";
   document.querySelector("#profile-info-form").reset();
+  document.querySelector("#profile-contact-form").reset();
+  document.querySelector("#profile-contact-status").textContent = "";
+  document.querySelector("#leaderboard-opt-in").checked = false;
+  referralsCache = [];
+  selectedSupportThreadId = null;
+  selectedAdminThreadId = null;
+  selectedAdminThreadStatus = null;
+  supportThreadsCache = [];
   profileMethods.length = 0;
   renderProfileMethods();
 }
@@ -136,37 +164,62 @@ function setSignedOutView() {
 async function loadProfile(user) {
   const { data: profile, error } = await supabaseClient
     .from("profiles")
-    .select("id, username, first_name, last_name, country, referral_code")
+    .select("id, username, first_name, last_name, country, referral_code, leaderboard_opt_in")
     .eq("id", user.id)
     .single();
   if (error) throw error;
 
-  const { data: referralCount, error: referralError } = await supabaseClient.rpc("my_referral_count");
-  if (referralError) throw referralError;
+  const [
+    { data: referralStats, error: referralStatsError },
+    { data: referrals, error: referralsError },
+    { data: contacts, error: contactsError },
+    { data: methods, error: methodsError }
+  ] = await Promise.all([
+    supabaseClient.rpc("my_referral_stats"),
+    supabaseClient.rpc("my_referrals"),
+    supabaseClient.from("profile_contacts").select("*").eq("user_id", user.id).maybeSingle(),
+    supabaseClient.from("member_payment_methods")
+      .select("id, method_type, currency, display_label, status, is_default")
+      .eq("user_id", user.id)
+      .order("created_at")
+  ]);
+  if (referralStatsError) throw referralStatsError;
+  if (referralsError) throw referralsError;
+  if (contactsError) throw contactsError;
+  if (methodsError) throw methodsError;
 
   currentProfile = profile;
+  const totalReferrals = referralStats?.[0]?.total_referrals ?? 0;
+  const activeReferrals = referralStats?.[0]?.active_referrals ?? 0;
   document.querySelector("#welcome-heading").textContent = `Good to see you again, ${profile.first_name}`;
   document.querySelector("#profile-full-name").textContent = `${profile.first_name} ${profile.last_name}`;
   document.querySelector("#profile-username").textContent = `@${profile.username}`;
   document.querySelector(".member-account strong").textContent = `@${profile.username}`;
   document.querySelector(".member-account small").textContent = profile.referral_code;
-  document.querySelector("#referral-count").textContent = String(referralCount ?? 0);
-  document.querySelector("#gifts-referral-count").textContent = "0";
-  document.querySelector("#milestone-count").textContent = "0";
-  document.querySelector("#referrals-total").textContent = String(referralCount ?? 0);
-  document.querySelector("#referrals-active").textContent = "0";
-  document.querySelector("#referrals-inactive").textContent = String(referralCount ?? 0);
-  document.querySelector("#milestone-progress").style.width = "0%";
-  document.querySelector("#referrals-progress").style.width = "0%";
-  document.querySelector("#referrals-progress-label").textContent = "0/5";
+  document.querySelector("#referral-count").textContent = String(totalReferrals);
+  document.querySelector("#gifts-referral-count").textContent = String(activeReferrals);
+  document.querySelector("#milestone-count").textContent = String(activeReferrals);
+  document.querySelector("#referrals-total").textContent = String(totalReferrals);
+  document.querySelector("#referrals-active").textContent = String(activeReferrals);
+  document.querySelector("#referrals-inactive").textContent = String(totalReferrals - activeReferrals);
+  referralsCache = referrals ?? [];
+  renderReferralList();
   document.querySelector("#profile-info-form").elements.firstName.value = profile.first_name;
   document.querySelector("#profile-info-form").elements.lastName.value = profile.last_name;
   document.querySelector("#profile-info-form").elements.username.value = profile.username;
   document.querySelector("#profile-country").value = profile.country;
+  document.querySelector("#leaderboard-opt-in").checked = profile.leaderboard_opt_in;
   updateProfilePixAvailability();
+  const contactForm = document.querySelector("#profile-contact-form");
+  contactForm.elements.phoneCountry.value = contacts?.phone_country_code ?? "+1";
+  contactForm.elements.phone.value = contacts?.phone_number ?? "";
+  contactForm.elements.whatsappCountry.value = contacts?.whatsapp_country_code ?? "+1";
+  contactForm.elements.whatsapp.value = contacts?.whatsapp_number ?? "";
+  profileMethods.splice(0, profileMethods.length, ...(methods ?? []));
+  renderProfileMethods();
   document.querySelector("#profile-private-details").textContent = `${user.email || ""} · Invite code ${profile.referral_code}`;
 
-  const referralUrl = new URL(location.pathname, location.origin);
+  const referralUrl = new URL("./", window.TRUSTGIFT_SUPABASE_CONFIG.siteUrl);
   referralUrl.searchParams.set("ref", profile.referral_code);
   referralUrl.hash = "join";
   document.querySelector("#referral-link").textContent = referralUrl.toString();
@@ -177,6 +230,7 @@ async function applySession(session) {
   if (!session?.user) {
     setSignedOutView();
     renderRoute();
+    await loadActiveRouteData();
     return;
   }
 
@@ -185,6 +239,7 @@ async function applySession(session) {
   renderRoute();
   try {
     await loadProfile(session.user);
+    await loadActiveRouteData();
   } catch (error) {
     console.error("Could not load the signed-in profile.", error);
     showToast(`Could not load your profile: ${authErrorMessage(error)}`);
@@ -220,11 +275,11 @@ async function initializeSupabase() {
     });
     if (!health.ok) throw new Error(`Supabase returned HTTP ${health.status}`);
 
-    const { data: readiness, error: readinessError } = await supabaseClient.rpc("is_schema_ready");
+    const { data: readiness, error: readinessError } = await supabaseClient.rpc("member_workflows_ready");
     if (readinessError || readiness !== true) {
       console.error("Supabase is reachable, but its schema migration is not ready.", readinessError);
-      setAuthStatus("signup-status", "Supabase is reachable, but the database migration has not been applied. Run the SQL migration before creating accounts.");
-      setAuthStatus("signin-status", "Supabase is reachable, but the database migration has not been applied. Run the SQL migration before signing in.");
+      setAuthStatus("signup-status", "Supabase is reachable, but the member-workflows migration is not applied. Run the new SQL migration before creating accounts.");
+      setAuthStatus("signin-status", "Supabase is reachable, but the member-workflows migration is not applied. Run the new SQL migration before signing in.");
       return;
     }
     schemaReady = true;
@@ -287,21 +342,20 @@ const paymentTabs = document.querySelectorAll("#payments .payment-tab");
 const paymentOptions = document.querySelector("#payment-options");
 const paymentDetail = document.querySelector("#payment-detail");
 const paymentLabel = document.querySelector("#payment-label");
-const paymentInput = paymentDetail.querySelector("input");
 const paymentHint = document.querySelector("#payment-hint");
 const pixTab = document.querySelector('.payment-tab[data-method="Pix"]');
 const countrySelect = document.querySelector("#country-select");
 let selectedPayment = "Crypto";
+let selectedPaymentCurrency = "USDT";
 
 function updatePixAvailability() {
   const isBrazil = countrySelect.value === "Brazil";
   pixTab.hidden = !isBrazil;
   if (!isBrazil) {
-    const pixMethods = document.querySelectorAll('.added-method[data-method="Pix"]');
+    const pixMethods = document.querySelectorAll('.added-method[data-method="pix"]');
     pixMethods.forEach(method => method.remove());
     if (selectedPayment === "Pix") {
       document.querySelector('.payment-tab[data-method="Crypto"]').click();
-      paymentInput.value = "";
     }
   }
 }
@@ -311,14 +365,14 @@ function updatePaymentFields() {
   const isPix = selectedPayment === "Pix";
   paymentOptions.hidden = !isCrypto;
   paymentDetail.hidden = isCrypto;
-  paymentLabel.firstChild.textContent = isPix ? "Pix key " : `${selectedPayment} account `;
-  paymentInput.placeholder = isPix
-    ? "CPF, e-mail, phone or random key"
-    : `Enter your ${selectedPayment} details`;
-  paymentHint.hidden = !isPix;
-  paymentHint.textContent = isPix
-    ? "Use a Pix key you control. This demo does not save or send it."
-    : "";
+  paymentLabel.textContent = isPix
+    ? "Pix preference saved as pending setup. No Pix key is collected."
+    : `${selectedPayment} preference saved as pending setup. No account details are collected.`;
+  paymentHint.hidden = true;
+  if (isCrypto) {
+    const selectedChoice = document.querySelector("#payment-options .choice.selected");
+    selectedPaymentCurrency = selectedChoice?.textContent.includes("USDC") ? "USDC" : "USDT";
+  }
 }
 
 countrySelect.addEventListener("change", updatePixAvailability);
@@ -333,6 +387,7 @@ paymentTabs.forEach(button => button.addEventListener("click", () => {
 
 document.querySelectorAll("#payment-options .choice").forEach(button => button.addEventListener("click", () => {
   document.querySelectorAll("#payment-options .choice").forEach(choice => choice.classList.toggle("selected", choice === button));
+  selectedPaymentCurrency = button.textContent.includes("USDC") ? "USDC" : "USDT";
 }));
 
 document.querySelector(".secondary-copy").addEventListener("click", async event => {
@@ -349,54 +404,410 @@ document.querySelector(".secondary-copy").addEventListener("click", async event 
   }
 });
 
+function renderReferralList() {
+  const list = document.querySelector("#referral-list");
+  const filter = document.querySelector(".filter-tab.active")?.dataset.filter ?? "all";
+  const rows = referralsCache.filter(referral =>
+    filter === "all" || (filter === "active" ? referral.is_active : !referral.is_active)
+  );
+  list.replaceChildren();
+  if (!rows.length) {
+    const empty = document.createElement("p");
+    empty.textContent = filter === "all"
+      ? "No referrals yet. Share your invite link."
+      : filter === "active"
+        ? "No email-confirmed referrals yet."
+        : "No referrals awaiting email confirmation.";
+    list.append(empty);
+    return;
+  }
+  rows.forEach(referral => {
+    const row = document.createElement("div");
+    row.className = "referral-row";
+    const username = document.createElement("strong");
+    username.textContent = `@${referral.username}`;
+    const status = document.createElement("span");
+    status.className = referral.is_active ? "status-active" : "status-pending";
+    status.textContent = referral.is_active ? "Email confirmed" : "Awaiting confirmation";
+    row.append(username, status);
+    list.append(row);
+  });
+}
+
 document.querySelectorAll(".filter-tab").forEach(button => button.addEventListener("click", () => {
   document.querySelectorAll(".filter-tab").forEach(tab => {
     const active = tab === button;
     tab.classList.toggle("active", active);
     tab.setAttribute("aria-selected", String(active));
   });
-  document.querySelector("#referral-list").querySelector("p").textContent =
-    button.dataset.filter === "all" ? "You have no referrals yet. Share your invite link!" : "No referrals in this category yet.";
+  renderReferralList();
 }));
 
 const supportMessage = document.querySelector("#support-message");
 const sendSupportMessage = document.querySelector("#send-support-message");
+const supportAttachment = document.querySelector("#support-attachment");
+const supportStatus = document.querySelector("#support-status");
+const acceptedAttachmentTypes = ["image/jpeg", "image/png", "image/gif", "image/webp", "application/pdf"];
 supportMessage.addEventListener("input", () => {
-  sendSupportMessage.disabled = supportMessage.value.trim().length === 0;
+  sendSupportMessage.disabled = supportMessage.value.trim().length === 0 && !supportAttachment.files[0];
 });
 
-function previewSupportMessage() {
-  const message = supportMessage.value.trim();
-  if (!message) return;
-  const preview = document.createElement("p");
-  preview.className = "chat-message-preview";
-  preview.textContent = message;
-  const messages = document.querySelector("#chat-messages");
-  messages.replaceChildren(preview);
-  supportMessage.value = "";
-  sendSupportMessage.disabled = true;
-  showToast("Demo only: your message was not sent or saved.");
+async function renderSupportMessages(container, messages, ownUserId) {
+  container.replaceChildren();
+  if (!messages.length) {
+    const empty = document.createElement("p");
+    empty.textContent = "No messages yet. Send your question to Support.";
+    container.append(empty);
+    return;
+  }
+  for (const message of messages) {
+    const bubble = document.createElement("article");
+    bubble.className = `chat-message${message.sender_id === ownUserId ? " own" : ""}`;
+    if (message.body) {
+      const bodyText = document.createElement("p");
+      bodyText.textContent = message.body;
+      bubble.append(bodyText);
+    }
+    if (message.attachment_path) {
+      const { data, error } = await supabaseClient.storage
+        .from("support-attachments")
+        .createSignedUrl(message.attachment_path, 600);
+      if (error) throw error;
+      const attachment = document.createElement("a");
+      attachment.href = data.signedUrl;
+      attachment.target = "_blank";
+      attachment.rel = "noopener noreferrer";
+      attachment.textContent = message.attachment_name || "Open attachment";
+      bubble.append(attachment);
+    }
+    const timestamp = document.createElement("small");
+    timestamp.textContent = new Date(message.created_at).toLocaleString();
+    bubble.append(timestamp);
+    container.append(bubble);
+  }
+  container.scrollTop = container.scrollHeight;
 }
 
-sendSupportMessage.addEventListener("click", previewSupportMessage);
+async function loadSupportThread() {
+  if (!currentUser) {
+    supportStatus.textContent = "Sign in to send a private message to Support.";
+    document.querySelector("#chat-messages").replaceChildren();
+    return;
+  }
+  const { data: thread, error: threadError } = await supabaseClient
+    .from("support_threads")
+    .select("id, status")
+    .eq("user_id", currentUser.id)
+    .in("status", ["open", "waiting"])
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (threadError) throw threadError;
+  selectedSupportThreadId = thread?.id ?? null;
+  if (!thread) {
+    document.querySelector("#chat-messages").innerHTML = "";
+    supportStatus.textContent = "Messages are private to you and authorized support agents.";
+    return;
+  }
+  const { data: messages, error: messagesError } = await supabaseClient
+    .from("support_messages")
+    .select("id, sender_id, body, attachment_path, attachment_name, created_at")
+    .eq("thread_id", thread.id)
+    .order("created_at")
+    .limit(100);
+  if (messagesError) throw messagesError;
+  await renderSupportMessages(document.querySelector("#chat-messages"), messages ?? [], currentUser.id);
+  supportStatus.textContent = thread.status === "waiting"
+    ? "Support has replied. Send a message if you need more help."
+    : "Messages are private to you and authorized support agents.";
+}
+
+async function ensureSupportThread() {
+  if (selectedSupportThreadId) return selectedSupportThreadId;
+  const { data: existing, error: lookupError } = await supabaseClient
+    .from("support_threads")
+    .select("id")
+    .eq("user_id", currentUser.id)
+    .in("status", ["open", "waiting"])
+    .limit(1)
+    .maybeSingle();
+  if (lookupError) throw lookupError;
+  if (existing) {
+    selectedSupportThreadId = existing.id;
+    return existing.id;
+  }
+  const { data: created, error: createError } = await supabaseClient
+    .from("support_threads")
+    .insert({ user_id: currentUser.id })
+    .select("id")
+    .single();
+  if (createError) throw createError;
+  selectedSupportThreadId = created.id;
+  return created.id;
+}
+
+async function submitSupportMessage() {
+  const message = supportMessage.value.trim();
+  const file = supportAttachment.files[0];
+  if (!currentUser) {
+    showToast("Sign in before messaging Support.");
+    location.hash = "#signin";
+    return;
+  }
+  if (!message && !file) return;
+  sendSupportMessage.disabled = true;
+  supportStatus.textContent = "Sending securely…";
+  let uploadedPath = null;
+  try {
+    const threadId = await ensureSupportThread();
+    if (file) {
+      const safeName = file.name.replace(/[^A-Za-z0-9._-]/g, "_").slice(-120);
+      uploadedPath = `${currentUser.id}/${threadId}/${crypto.randomUUID()}-${safeName}`;
+      const { error: uploadError } = await supabaseClient.storage
+        .from("support-attachments")
+        .upload(uploadedPath, file, { contentType: file.type, upsert: false });
+      if (uploadError) throw uploadError;
+    }
+    const { error } = await supabaseClient.from("support_messages").insert({
+      thread_id: threadId,
+      sender_id: currentUser.id,
+      body: message,
+      attachment_path: uploadedPath,
+      attachment_name: file?.name ?? null,
+      attachment_mime: file?.type ?? null
+    });
+    if (error) throw error;
+    supportMessage.value = "";
+    supportAttachment.value = "";
+    sendSupportMessage.disabled = true;
+    await loadSupportThread();
+  } catch (error) {
+    if (uploadedPath) {
+      const { error: cleanupError } = await supabaseClient.storage.from("support-attachments").remove([uploadedPath]);
+      if (cleanupError) console.error("Could not clean up an unused support attachment.", cleanupError);
+    }
+    console.error("Could not send support message.", error);
+    supportStatus.textContent = `Could not send message: ${authErrorMessage(error)}`;
+    sendSupportMessage.disabled = false;
+  }
+}
+
+sendSupportMessage.addEventListener("click", submitSupportMessage);
 supportMessage.addEventListener("keydown", event => {
   if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
     event.preventDefault();
-    previewSupportMessage();
+    submitSupportMessage();
   }
 });
 
-document.querySelector("#support-attachment").addEventListener("change", event => {
+supportAttachment.addEventListener("change", event => {
   const file = event.currentTarget.files[0];
-  if (!file) return;
-  const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp", "application/pdf"];
-  if (!allowedTypes.includes(file.type) || file.size > 8 * 1024 * 1024) {
+  if (file && (!acceptedAttachmentTypes.includes(file.type) || file.size > 8 * 1024 * 1024)) {
     event.currentTarget.value = "";
     showToast("Choose a JPG, PNG, GIF, WebP or PDF file up to 8 MB.");
+  }
+  sendSupportMessage.disabled = supportMessage.value.trim().length === 0 && !event.currentTarget.files[0];
+});
+
+function renderLeaderboard(records) {
+  const rows = document.querySelector("#leaderboard-rows");
+  rows.replaceChildren();
+  const hallOfFame = document.querySelector("#reward-leaderboard");
+  hallOfFame.replaceChildren();
+  if (!records.length) {
+    const emptyRow = document.createElement("tr");
+    const cell = document.createElement("td");
+    cell.colSpan = 4;
+    cell.className = "leaderboard-empty";
+    cell.textContent = "No members have opted in to the ranking.";
+    emptyRow.append(cell);
+    rows.append(emptyRow);
+    const emptyItem = document.createElement("li");
+    emptyItem.className = "leaderboard-empty";
+    emptyItem.textContent = "No members have opted in to the ranking.";
+    hallOfFame.append(emptyItem);
     return;
   }
-  showToast(`${file.name} selected locally only; it was not uploaded.`);
+  const countryCodes = { Brazil: "BR", Canada: "CA", France: "FR", Haiti: "HT", Spain: "ES", "United States": "US" };
+  records.forEach(record => {
+    const positionNumber = Number(record.position);
+    const row = document.createElement("tr");
+    const position = document.createElement("td");
+    position.className = positionNumber <= 3 ? "medal" : "";
+    position.textContent = positionNumber === 1 ? "♛" : positionNumber <= 3 ? "♢" : `#${positionNumber}`;
+    const username = document.createElement("td");
+    username.textContent = `@${record.username}`;
+    const country = document.createElement("td");
+    country.textContent = `${countryCodes[record.country] ?? ""} ${record.country}`.trim();
+    const referrals = document.createElement("td");
+    referrals.textContent = `♧ ${record.active_referrals}`;
+    row.append(position, username, country, referrals);
+    rows.append(row);
+
+    const listItem = document.createElement("li");
+    const rank = document.createElement("span");
+    rank.className = `rank-number ${positionNumber === 1 ? "gold" : positionNumber === 2 ? "silver" : "bronze"}`;
+    rank.textContent = String(positionNumber);
+    const identity = document.createElement("span");
+    const listName = document.createElement("strong");
+    listName.textContent = `@${record.username}`;
+    const listCountry = document.createElement("small");
+    listCountry.textContent = record.country;
+    identity.append(listName, listCountry);
+    const count = document.createElement("strong");
+    count.textContent = String(record.active_referrals);
+    const countLabel = document.createElement("small");
+    countLabel.textContent = "CONFIRMED REFERRALS";
+    count.append(countLabel);
+    listItem.append(rank, identity, count);
+    hallOfFame.append(listItem);
+  });
+}
+
+async function loadLeaderboard() {
+  const { data, error } = await supabaseClient.rpc("public_leaderboard");
+  if (error) throw error;
+  renderLeaderboard(data ?? []);
+}
+
+function renderSupportThreadList(threads) {
+  const list = document.querySelector("#support-thread-list");
+  list.replaceChildren();
+  const heading = document.createElement("div");
+  heading.className = "support-thread-list-heading";
+  const title = document.createElement("strong");
+  title.textContent = "Conversations";
+  const refresh = document.createElement("button");
+  refresh.className = "icon-button";
+  refresh.type = "button";
+  refresh.textContent = "↻";
+  refresh.setAttribute("aria-label", "Refresh conversations");
+  refresh.addEventListener("click", () => loadSupportInbox().catch(error => {
+    console.error("Could not refresh support conversations.", error);
+    showToast(`Could not refresh inbox: ${authErrorMessage(error)}`);
+  }));
+  heading.append(title, refresh);
+  list.append(heading);
+  if (!threads.length) {
+    const empty = document.createElement("p");
+    empty.textContent = "No support conversations.";
+    list.append(empty);
+    return;
+  }
+  threads.forEach(thread => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `support-thread-choice${thread.id === selectedAdminThreadId ? " active" : ""}`;
+    button.textContent = `${thread.user_id.slice(0, 8)} · ${thread.status}`;
+    button.addEventListener("click", () => loadAdminThread(thread).catch(error => {
+      console.error("Could not load support conversation.", error);
+      showToast(`Could not load conversation: ${authErrorMessage(error)}`);
+    }));
+    list.append(button);
+  });
+}
+
+async function loadAdminThread(thread) {
+  selectedAdminThreadId = thread.id;
+  selectedAdminThreadStatus = thread.status;
+  document.querySelector("#admin-thread-title").textContent = `Member ${thread.user_id}`;
+  document.querySelector("#admin-support-reply").disabled = thread.status === "closed";
+  document.querySelector("#send-support-reply").disabled = thread.status === "closed";
+  document.querySelector("#close-support-thread").disabled = thread.status === "closed";
+  document.querySelector("#close-support-thread").textContent = thread.status === "closed" ? "Closed" : "Close conversation";
+  const { data: messages, error } = await supabaseClient
+    .from("support_messages")
+    .select("id, sender_id, body, attachment_path, attachment_name, created_at")
+    .eq("thread_id", thread.id)
+    .order("created_at")
+    .limit(100);
+  if (error) throw error;
+  await renderSupportMessages(document.querySelector("#admin-chat-messages"), messages ?? [], currentUser.id);
+  document.querySelector("#send-support-reply").disabled =
+    thread.status === "closed" || document.querySelector("#admin-support-reply").value.trim().length === 0;
+  renderSupportThreadList(supportThreadsCache);
+}
+
+async function loadSupportInbox() {
+  if (!isSupportAgent()) return;
+  const { data: threads, error } = await supabaseClient
+    .from("support_threads")
+    .select("id, user_id, status, created_at, updated_at")
+    .order("updated_at", { ascending: false })
+    .limit(100);
+  if (error) throw error;
+  supportThreadsCache = (threads ?? []).sort((first, second) => {
+    if ((first.status === "closed") !== (second.status === "closed")) return first.status === "closed" ? 1 : -1;
+    return new Date(second.updated_at).getTime() - new Date(first.updated_at).getTime();
+  });
+  renderSupportThreadList(supportThreadsCache);
+  const selected = supportThreadsCache.find(thread => thread.id === selectedAdminThreadId)
+    ?? supportThreadsCache[0];
+  if (selected) {
+    await loadAdminThread(selected);
+  } else {
+    selectedAdminThreadId = null;
+    document.querySelector("#admin-thread-title").textContent = "No conversations";
+    document.querySelector("#admin-chat-messages").replaceChildren();
+    document.querySelector("#admin-support-reply").disabled = true;
+    document.querySelector("#send-support-reply").disabled = true;
+    document.querySelector("#close-support-thread").disabled = true;
+  }
+}
+
+document.querySelector("#admin-support-reply").addEventListener("input", event => {
+  document.querySelector("#send-support-reply").disabled = event.currentTarget.value.trim().length === 0;
 });
+
+document.querySelector("#send-support-reply").addEventListener("click", async event => {
+  const bodyText = document.querySelector("#admin-support-reply").value.trim();
+  if (!selectedAdminThreadId || !bodyText || !isSupportAgent() || selectedAdminThreadStatus === "closed") return;
+  event.currentTarget.disabled = true;
+  try {
+    const { error } = await supabaseClient.from("support_messages").insert({
+      thread_id: selectedAdminThreadId,
+      sender_id: currentUser.id,
+      body: bodyText
+    });
+    if (error) throw error;
+    document.querySelector("#admin-support-reply").value = "";
+    await loadSupportInbox();
+  } catch (error) {
+    console.error("Could not send support reply.", error);
+    document.querySelector("#admin-support-status").textContent = `Could not send reply: ${authErrorMessage(error)}`;
+    event.currentTarget.disabled = false;
+  }
+});
+
+document.querySelector("#close-support-thread").addEventListener("click", async event => {
+  if (!selectedAdminThreadId || !isSupportAgent()) return;
+  event.currentTarget.disabled = true;
+  try {
+    const { error } = await supabaseClient
+      .from("support_threads")
+      .update({ status: "closed" })
+      .eq("id", selectedAdminThreadId);
+    if (error) throw error;
+    selectedAdminThreadId = null;
+    await loadSupportInbox();
+  } catch (error) {
+    console.error("Could not close support conversation.", error);
+    showToast(`Could not close conversation: ${authErrorMessage(error)}`);
+    event.currentTarget.disabled = false;
+  }
+});
+
+async function loadActiveRouteData() {
+  if (!supabaseClient || !schemaReady) return;
+  const route = location.hash.slice(1);
+  if (route === "leaderboard") {
+    await loadLeaderboard();
+  } else if (route === "support" && currentUser) {
+    await loadSupportThread();
+  } else if (route === "support-admin" && isSupportAgent()) {
+    await loadSupportInbox();
+  }
+}
 
 const profileInfoForm = document.querySelector("#profile-info-form");
 profileInfoForm.addEventListener("submit", async event => {
@@ -409,7 +820,8 @@ profileInfoForm.addEventListener("submit", async event => {
   const changes = {
     first_name: String(formData.get("firstName")).trim(),
     last_name: String(formData.get("lastName")).trim(),
-    country: String(formData.get("country")).trim()
+    country: String(formData.get("country")).trim(),
+    leaderboard_opt_in: formData.get("leaderboardOptIn") === "on"
   };
   const saveButton = profileInfoForm.querySelector('button[type="submit"]');
   saveButton.disabled = true;
@@ -419,7 +831,7 @@ profileInfoForm.addEventListener("submit", async event => {
       .from("profiles")
       .update(changes)
       .eq("id", currentUser.id)
-      .select("id, username, first_name, last_name, country, referral_code")
+      .select("id, username, first_name, last_name, country, referral_code, leaderboard_opt_in")
       .single();
     if (error) throw error;
     currentProfile = profile;
@@ -433,16 +845,49 @@ profileInfoForm.addEventListener("submit", async event => {
   }
 });
 
-document.querySelector("#profile-contact-form").addEventListener("submit", event => {
+document.querySelector("#profile-contact-form").addEventListener("submit", async event => {
   event.preventDefault();
-  showToast("Contact details are demo-only and were not saved.");
+  const form = event.currentTarget;
+  const formData = new FormData(form);
+  const phone = String(formData.get("phone")).trim();
+  const whatsapp = String(formData.get("whatsapp")).trim();
+  const phoneCountry = String(formData.get("phoneCountry")).trim();
+  const whatsappCountry = String(formData.get("whatsappCountry")).trim();
+  const status = document.querySelector("#profile-contact-status");
+  if (!currentUser || !schemaReady) {
+    status.textContent = "Sign in and apply the member-data migration to save contact details.";
+    return;
+  }
+  if ((phone && !phoneCountry) || (whatsapp && !whatsappCountry)) {
+    status.textContent = "Choose a country calling code for each number.";
+    return;
+  }
+  const button = form.querySelector('button[type="submit"]');
+  button.disabled = true;
+  status.textContent = "Saving…";
+  try {
+    const { error } = await supabaseClient.from("profile_contacts").upsert({
+      user_id: currentUser.id,
+      phone_country_code: phone ? phoneCountry : null,
+      phone_number: phone || null,
+      whatsapp_country_code: whatsapp ? whatsappCountry : null,
+      whatsapp_number: whatsapp || null,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "user_id" });
+    if (error) throw error;
+    status.textContent = "Contact details saved privately.";
+  } catch (error) {
+    console.error("Could not save contact details.", error);
+    status.textContent = `Could not save contact details: ${authErrorMessage(error)}`;
+  } finally {
+    button.disabled = false;
+  }
 });
 
 const profileCountry = document.querySelector("#profile-country");
 const profileMethodTabs = document.querySelectorAll(".profile-payment-tab");
 const profilePaymentOptions = document.querySelector("#profile-payment-options");
 const profilePaymentDetail = document.querySelector("#profile-payment-detail");
-const profilePaymentInput = profilePaymentDetail.querySelector("input");
 const profilePaymentLabel = document.querySelector("#profile-payment-label");
 const profilePixTab = document.querySelector('.profile-payment-tab[data-profile-method="Pix"]');
 const profileMethods = [];
@@ -460,30 +905,50 @@ function renderProfileMethods() {
   }
   profileMethods.forEach((method, index) => {
     const row = document.createElement("div");
-    row.className = `profile-method${index === 0 ? " default" : ""}`;
+    row.className = `profile-method${method.is_default ? " default" : ""}`;
     const icon = document.createElement("span");
-    icon.textContent = { Crypto: "₿", Zelle: "ϟ", "Cash App": "$", MonCash: "▣", NatCash: "▣", Pix: "▣" }[method.name];
+    icon.textContent = { crypto: "₿", zelle: "ϟ", cash_app: "$", moncash: "▣", natcash: "▣", pix: "▣" }[method.method_type];
     const info = document.createElement("div");
     info.className = "profile-method-info";
     const name = document.createElement("strong");
-    name.textContent = method.name;
-    if (index === 0) {
+    name.textContent = method.display_label;
+    if (method.is_default) {
       const badge = document.createElement("small");
       badge.textContent = "Default";
       name.append("  ", badge);
     }
     const detail = document.createElement("small");
-    detail.textContent = method.detail;
+    detail.textContent = method.status === "ready"
+      ? "Provider connected"
+      : method.status === "disabled"
+        ? "Unavailable for the selected country"
+        : "Provider setup required";
     info.append(name, detail);
-    const remove = document.createElement("button");
-    remove.type = "button";
-    remove.setAttribute("aria-label", `Remove ${method.name}`);
-    remove.textContent = "♲";
-    remove.addEventListener("click", () => {
-      profileMethods.splice(index, 1);
-      renderProfileMethods();
-    });
-    row.append(icon, info, remove);
+    row.append(icon, info);
+    if (method.status === "pending_setup") {
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.setAttribute("aria-label", `Remove ${method.display_label}`);
+      remove.textContent = "♲";
+      remove.addEventListener("click", async () => {
+        remove.disabled = true;
+        try {
+          const { error } = await supabaseClient
+            .from("member_payment_methods")
+            .delete()
+            .eq("id", method.id)
+            .eq("user_id", currentUser.id);
+          if (error) throw error;
+          profileMethods.splice(index, 1);
+          renderProfileMethods();
+        } catch (error) {
+          console.error("Could not remove payment preference.", error);
+          showToast(`Could not remove payment preference: ${authErrorMessage(error)}`);
+          remove.disabled = false;
+        }
+      });
+      row.append(remove);
+    }
     list.append(row);
   });
 }
@@ -493,13 +958,6 @@ function updateProfilePixAvailability() {
   profilePixTab.hidden = !isBrazil;
   if (!isBrazil && selectedProfileMethod === "Pix") {
     document.querySelector('.profile-payment-tab[data-profile-method="Crypto"]').click();
-    profilePaymentInput.value = "";
-  }
-  if (!isBrazil) {
-    for (let index = profileMethods.length - 1; index >= 0; index -= 1) {
-      if (profileMethods[index].name === "Pix") profileMethods.splice(index, 1);
-    }
-    renderProfileMethods();
   }
 }
 
@@ -517,34 +975,51 @@ profileMethodTabs.forEach(button => button.addEventListener("click", () => {
   profilePaymentOptions.hidden = !isCrypto;
   profilePaymentDetail.hidden = isCrypto;
   document.querySelector("#cancel-profile-method").hidden = isCrypto;
-  profilePaymentLabel.firstChild.textContent = isPix ? "Pix key " : `${method} account `;
-  profilePaymentInput.placeholder = isPix ? "CPF, e-mail, phone or random key" : `Enter your ${method} details`;
+  profilePaymentLabel.textContent = isPix
+    ? "Pix preference only. No Pix key is collected or stored."
+    : `${method} preference only. No account details are collected or stored.`;
 }));
 
 document.querySelectorAll("#profile-payment-options .choice").forEach(button => button.addEventListener("click", () => {
   document.querySelectorAll("#profile-payment-options .choice").forEach(choice => choice.classList.toggle("selected", choice === button));
 }));
 
-document.querySelector("#add-profile-method").addEventListener("click", () => {
-  const detail = selectedProfileMethod === "Crypto"
-    ? document.querySelector("#profile-payment-options .choice.selected")?.textContent.trim()
-    : profilePaymentInput.value.trim();
-  if (!detail) {
-    showToast(selectedProfileMethod === "Crypto" ? "Choose a crypto method first." : "Enter your payment details first.");
+document.querySelector("#add-profile-method").addEventListener("click", async event => {
+  if (!currentUser || !schemaReady) {
+    showToast("Sign in and apply the member-data migration to save a payment preference.");
     return;
   }
-  profileMethods.push({
-    name: selectedProfileMethod,
-    detail: selectedProfileMethod === "Crypto" ? detail : "••••••••"
-  });
-  profilePaymentInput.value = "";
-  renderProfileMethods();
-  showToast("Demo only: payment details were not saved.");
+  const methodCodes = { Crypto: "crypto", Zelle: "zelle", "Cash App": "cash_app", MonCash: "moncash", NatCash: "natcash", Pix: "pix" };
+  const currency = selectedProfileMethod === "Crypto"
+    ? (document.querySelector("#profile-payment-options .choice.selected")?.textContent.includes("USDC") ? "USDC" : "USDT")
+    : null;
+  const button = event.currentTarget;
+  button.disabled = true;
+  try {
+    const { error } = await supabaseClient.rpc("add_member_payment_method_preference", {
+      p_method_type: methodCodes[selectedProfileMethod],
+      p_currency: currency
+    });
+    if (error) throw error;
+    const { data: methods, error: methodsError } = await supabaseClient
+      .from("member_payment_methods")
+      .select("id, method_type, currency, display_label, status, is_default")
+      .eq("user_id", currentUser.id)
+      .order("created_at");
+    if (methodsError) throw methodsError;
+    profileMethods.splice(0, profileMethods.length, ...(methods ?? []));
+    renderProfileMethods();
+    showToast("Preference saved. A payment provider is required before receiving funds.");
+  } catch (error) {
+    console.error("Could not save payment preference.", error);
+    showToast(`Could not save payment preference: ${authErrorMessage(error)}`);
+  } finally {
+    button.disabled = false;
+  }
 });
 
 document.querySelector("#cancel-profile-method").addEventListener("click", () => {
   document.querySelector('.profile-payment-tab[data-profile-method="Crypto"]').click();
-  profilePaymentInput.value = "";
 });
 
 document.querySelector("#password-form").addEventListener("submit", async event => {
@@ -585,26 +1060,27 @@ document.querySelector("#password-form").addEventListener("submit", async event 
 });
 
 document.querySelector("#join-view .add-method").addEventListener("click", () => {
-  let detail = selectedPayment === "Crypto"
-    ? document.querySelector("#payment-options .choice.selected")?.textContent.trim()
-    : document.querySelector("#payment-detail input").value.trim();
-  if (!detail) {
-    showToast(selectedPayment === "Crypto" ? "Choose a crypto method first." : "Enter your payment details first.");
+  const methodCodes = { Crypto: "crypto", Zelle: "zelle", "Cash App": "cash_app", MonCash: "moncash", NatCash: "natcash", Pix: "pix" };
+  const currency = selectedPayment === "Crypto" ? selectedPaymentCurrency : "";
+  const methodCode = methodCodes[selectedPayment];
+  if (document.querySelector(`.added-method[data-method="${methodCode}"][data-currency="${currency}"]`)) {
+    showToast("That payment preference is already selected.");
     return;
   }
-  const method = selectedPayment === "Crypto" ? `${selectedPayment} · ${detail}` : `${selectedPayment} · ${detail}`;
+  const label = selectedPayment === "Crypto" ? `Crypto · ${currency}` : selectedPayment;
   const row = document.createElement("div");
   row.className = "added-method";
-  row.dataset.method = selectedPayment;
+  row.dataset.method = methodCode;
+  row.dataset.currency = currency;
   const text = document.createElement("span");
-  text.textContent = method;
+  text.textContent = `${label} · provider setup required`;
   const remove = document.createElement("button");
   remove.type = "button";
   remove.textContent = "Remove";
   remove.addEventListener("click", () => row.remove());
   row.append(text, remove);
   document.querySelector("#added-methods").append(row);
-  showToast("Payment method added.");
+  showToast("Preference added. No payment credentials were collected.");
 });
 
 document.querySelectorAll(".show-password").forEach(button => button.addEventListener("click", () => {
@@ -643,6 +1119,11 @@ joinForm.addEventListener("submit", event => {
     joinForm.elements.confirmPassword.focus();
     return;
   }
+  if ((joinForm.elements.phone.value.trim() && !joinForm.elements.phoneCountry.value)
+      || (joinForm.elements.whatsapp.value.trim() && !joinForm.elements.whatsappCountry.value)) {
+    showToast("Choose a country calling code for each contact number.");
+    return;
+  }
   const formData = new FormData(joinForm);
   createAccount.disabled = true;
   setAuthStatus("signup-status", "Creating your account…");
@@ -657,6 +1138,14 @@ joinForm.addEventListener("submit", event => {
         username: String(formData.get("username")).trim().toLowerCase(),
         country: String(formData.get("country")).trim(),
         referral_code: String(formData.get("referralCode")).trim().toUpperCase(),
+        phone: String(formData.get("phone") ?? "").trim(),
+        phone_country_code: String(formData.get("phoneCountry") ?? "").trim(),
+        whatsapp: String(formData.get("whatsapp") ?? "").trim(),
+        whatsapp_country_code: String(formData.get("whatsappCountry") ?? "").trim(),
+        payment_preferences: [...document.querySelectorAll("#added-methods .added-method")].map(method => ({
+          method_type: method.dataset.method,
+          currency: method.dataset.currency || null
+        })),
         legal_acceptance: {
           age_confirmed: terms[0].checked,
           gift_risk_acknowledged: terms[1].checked,
