@@ -121,6 +121,118 @@ Deno.serve(async request => {
     return jsonResponse({ token: rawToken, expiresAt }, 201, origin);
   }
 
+  if (payload.action === "list") {
+    if (userData.user.app_metadata?.trustgift_admin !== true) {
+      return jsonResponse({ error: "Only a TrustGift administrator can manage support access." }, 403, origin);
+    }
+
+    const { data: invitations, error: invitationsError } = await serviceClient
+      .from("support_agent_invitations")
+      .select("id, email, status, expires_at, created_at")
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (invitationsError) {
+      console.error("Could not list support invitations.", invitationsError.message);
+      return jsonResponse({ error: "Could not load support invitations." }, 500, origin);
+    }
+
+    const { data: agents, error: agentsError } = await serviceClient
+      .from("support_agents")
+      .select("user_id, created_at")
+      .order("created_at", { ascending: false });
+    if (agentsError) {
+      console.error("Could not list support agents.", agentsError.message);
+      return jsonResponse({ error: "Could not load support agents. Apply the access-management migration." }, 500, origin);
+    }
+
+    const emailsById = new Map<string, string>();
+    for (let page = 1; ; page += 1) {
+      const { data: users, error: usersError } = await serviceClient.auth.admin.listUsers({
+        page,
+        perPage: 1000
+      });
+      if (usersError) {
+        console.error("Could not load support agent accounts.", usersError.message);
+        return jsonResponse({ error: "Could not load support agent accounts." }, 500, origin);
+      }
+      users.users.forEach(agentUser => emailsById.set(agentUser.id, agentUser.email ?? ""));
+      if (users.users.length < 1000) break;
+    }
+
+    return jsonResponse({
+      invitations: invitations ?? [],
+      agents: (agents ?? []).map(agent => ({
+        userId: agent.user_id,
+        email: emailsById.get(agent.user_id) ?? ""
+      }))
+    }, 200, origin);
+  }
+
+  if (payload.action === "revoke") {
+    if (userData.user.app_metadata?.trustgift_admin !== true) {
+      return jsonResponse({ error: "Only a TrustGift administrator can manage support access." }, 403, origin);
+    }
+    const invitationId = typeof payload.invitationId === "string" ? payload.invitationId : "";
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(invitationId)) {
+      return jsonResponse({ error: "Choose a valid pending invitation." }, 400, origin);
+    }
+    const { data: revoked, error: revokeError } = await serviceClient
+      .from("support_agent_invitations")
+      .update({ status: "revoked" })
+      .eq("id", invitationId)
+      .eq("status", "pending")
+      .select("id")
+      .maybeSingle();
+    if (revokeError) {
+      console.error("Could not revoke a support invitation.", revokeError.message);
+      return jsonResponse({ error: "Could not revoke the support invitation." }, 500, origin);
+    }
+    if (!revoked) {
+      return jsonResponse({ error: "This invitation is no longer pending." }, 409, origin);
+    }
+    return jsonResponse({ ok: true }, 200, origin);
+  }
+
+  if (payload.action === "remove_agent") {
+    if (userData.user.app_metadata?.trustgift_admin !== true) {
+      return jsonResponse({ error: "Only a TrustGift administrator can manage support access." }, 403, origin);
+    }
+    const userId = typeof payload.userId === "string" ? payload.userId : "";
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
+      return jsonResponse({ error: "Choose a valid support agent." }, 400, origin);
+    }
+    if (userId === userData.user.id) {
+      return jsonResponse({ error: "You cannot remove your own support access from this panel." }, 400, origin);
+    }
+    const { data: targetData, error: targetError } = await serviceClient.auth.admin.getUserById(userId);
+    if (targetError || !targetData.user) {
+      console.error("Could not find the support agent account.", targetError?.message);
+      return jsonResponse({ error: "Could not find that support agent." }, 404, origin);
+    }
+    if (targetData.user.app_metadata?.trustgift_admin === true) {
+      return jsonResponse({ error: "Administrator access cannot be changed from this panel." }, 403, origin);
+    }
+
+    const { error: accessError } = await serviceClient
+      .from("support_agents")
+      .delete()
+      .eq("user_id", userId);
+    if (accessError) {
+      console.error("Could not remove support access.", accessError.message);
+      return jsonResponse({ error: "Could not remove support access. Apply the access-management migration." }, 500, origin);
+    }
+    const appMetadata = { ...targetData.user.app_metadata };
+    delete appMetadata.support_agent;
+    const { error: metadataError } = await serviceClient.auth.admin.updateUserById(userId, {
+      app_metadata: appMetadata
+    });
+    if (metadataError) {
+      console.error("Could not update support agent metadata.", metadataError.message);
+      return jsonResponse({ error: "Support access was removed, but the account metadata could not be updated." }, 500, origin);
+    }
+    return jsonResponse({ ok: true }, 200, origin);
+  }
+
   if (payload.action === "redeem") {
     const rawToken = typeof payload.token === "string" ? payload.token.trim() : "";
     if (!/^[A-Za-z0-9_-]{43}$/.test(rawToken)) {
@@ -146,12 +258,10 @@ Deno.serve(async request => {
       return jsonResponse({ error: "This invitation does not match your signed-in e-mail address." }, 403, origin);
     }
 
-    const alreadyAcceptedByUser =
-      invitation.status === "accepted" && invitation.accepted_by === user.id;
-    if (!alreadyAcceptedByUser && invitation.status !== "pending") {
+    if (invitation.status !== "pending") {
       return jsonResponse({ error: "This support invitation has already been used or revoked." }, 410, origin);
     }
-    if (!alreadyAcceptedByUser && new Date(invitation.expires_at).getTime() <= Date.now()) {
+    if (new Date(invitation.expires_at).getTime() <= Date.now()) {
       const { error: revokeError } = await serviceClient
         .from("support_agent_invitations")
         .update({ status: "revoked" })
@@ -164,38 +274,52 @@ Deno.serve(async request => {
       return jsonResponse({ error: "This support invitation has expired. Ask an administrator for a new link." }, 410, origin);
     }
 
-    if (!alreadyAcceptedByUser) {
-      const { data: claimedInvitation, error: claimError } = await serviceClient
-        .from("support_agent_invitations")
-        .update({
-          status: "accepted",
-          accepted_by: user.id,
-          accepted_at: new Date().toISOString()
-        })
-        .eq("id", invitation.id)
-        .eq("status", "pending")
-        .select("id")
-        .maybeSingle();
-      if (claimError) {
-        console.error("Could not redeem the support invitation.", claimError.message);
-        return jsonResponse({ error: "Could not redeem the support invitation. Try again." }, 500, origin);
-      }
-      if (!claimedInvitation) {
-        return jsonResponse({ error: "This support invitation has already been used or revoked." }, 410, origin);
-      }
+    const { data: claimedInvitation, error: claimError } = await serviceClient
+      .from("support_agent_invitations")
+      .update({
+        status: "accepted",
+        accepted_by: user.id,
+        accepted_at: new Date().toISOString()
+      })
+      .eq("id", invitation.id)
+      .eq("status", "pending")
+      .gt("expires_at", new Date().toISOString())
+      .select("id")
+      .maybeSingle();
+    if (claimError) {
+      console.error("Could not redeem the support invitation.", claimError.message);
+      return jsonResponse({ error: "Could not redeem the support invitation. Try again." }, 500, origin);
+    }
+    if (!claimedInvitation) {
+      return jsonResponse({ error: "This support invitation has already been used, revoked, or expired." }, 410, origin);
     }
 
-    const appMetadata = { ...user.app_metadata, support_agent: true };
+    const { data: latestUserData, error: latestUserError } =
+      await serviceClient.auth.admin.getUserById(user.id);
+    if (latestUserError || !latestUserData.user) {
+      console.error("Could not reload the invited account before granting access.", latestUserError?.message);
+      return jsonResponse({ error: "Could not activate Support access. Ask an administrator to create a new invitation." }, 500, origin);
+    }
+
+    const appMetadata = { ...latestUserData.user.app_metadata, support_agent: true };
     const { error: roleError } = await serviceClient.auth.admin.updateUserById(user.id, {
       app_metadata: appMetadata
     });
     if (roleError) {
       console.error("Could not grant the support-agent role.", roleError.message);
-      return jsonResponse({ error: "The invitation was accepted, but Support access could not be activated. Ask an administrator to retry." }, 500, origin);
+      return jsonResponse({ error: "The invitation was accepted, but Support access could not be activated. Ask an administrator to create a new invitation." }, 500, origin);
+    }
+
+    const { error: accessError } = await serviceClient
+      .from("support_agents")
+      .upsert({ user_id: user.id }, { onConflict: "user_id" });
+    if (accessError) {
+      console.error("Could not add the support-agent access record.", accessError.message);
+      return jsonResponse({ error: "The invitation was accepted, but Support access could not be activated. Ask an administrator to create a new invitation." }, 500, origin);
     }
 
     return jsonResponse({ ok: true, supportAgent: true }, 200, origin);
   }
 
-  return jsonResponse({ error: "Choose the create or redeem invitation action." }, 400, origin);
+  return jsonResponse({ error: "Choose a valid support invitation action." }, 400, origin);
 });

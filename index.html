@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#050607">
     <title>TrustGift — Member area</title>
-    <link rel="stylesheet" href="styles.css?v=7">
+    <link rel="stylesheet" href="styles.css?v=8">
   </head>
   <body>
     <header class="site-header">
@@ -33,11 +33,12 @@
           <button type="button" class="language" data-lang="FR">FR</button>
           <button type="button" class="language selected" data-lang="EN">EN</button>
           <button type="button" class="language" data-lang="ES">ES</button>
+          <button type="button" class="language" data-lang="PT-BR">PT</button>
         </div>
         <a class="button button-small public-only" href="#join">Join</a>
         <a class="sign-in public-only" href="#signin">Sign in</a>
         <div class="member-account dashboard-only">
-          <strong>@Guerson</strong>
+          <strong data-i18n-ignore>@Guerson</strong>
           <small>1A612B34</small>
         </div>
         <button class="icon-button dashboard-only" id="sign-out" type="button" aria-label="Sign out">↪</button>
@@ -53,7 +54,7 @@
             <h1 id="welcome-heading">Welcome to TrustGift</h1>
             <p class="member-links">
               <span id="profile-full-name">Demo member</span>
-              <strong id="profile-username">@demo</strong>
+              <strong id="profile-username" data-i18n-ignore>@demo</strong>
               <a href="#journey">See my public journey</a>
               <a href="#profile">Edit my profile</a>
               <a href="#referrals">My referrals</a>
@@ -211,6 +212,15 @@
               <button class="button secondary-copy" id="copy-support-invitation" type="button">Copy invitation link</button>
             </div>
           </section>
+          <section class="surface-card admin-invitations">
+            <div class="profile-section-title"><h2>Support access</h2><p>Revoke pending invitations or remove an agent's access. Administrator access cannot be changed here.</p></div>
+            <button class="button" id="refresh-support-access" type="button">Refresh access list</button>
+            <p class="auth-status" id="support-access-status" role="status"></p>
+            <div class="support-access-columns">
+              <section><h3>Agents</h3><div id="support-agent-list"><p>Load the current support agents.</p></div></section>
+              <section><h3>Invitations</h3><div id="support-invitation-list"><p>Load the current invitations.</p></div></section>
+            </div>
+          </section>
         </div>
       </section>
 
@@ -351,10 +361,72 @@
           </div>
           <label>E-mail address<input name="email" type="email" autocomplete="email" placeholder="you@example.com" required></label>
           <label>Password<div class="password-field"><input name="password" type="password" autocomplete="current-password" required><button class="show-password" type="button" aria-label="Show password">◎</button></div></label>
+          <p class="signin-prompt"><a href="#password-recovery">Forgot your password?</a></p>
           <p class="field-hint auth-status" id="signin-status" role="status"></p>
           <button class="button create-account" type="submit">Sign in</button>
           <p class="signin-prompt">New here? <a href="#join">Create an account</a></p>
         </form>
+      </section>
+
+      <section id="password-recovery-view" class="view form-view" hidden>
+        <form class="join-card auth-card" id="password-recovery-form">
+          <div class="form-intro"><h1>Reset your password</h1><p>We will send a recovery link if an account matches this address.</p></div>
+          <label>E-mail address<input name="email" type="email" autocomplete="email" required></label>
+          <p class="field-hint auth-status" id="password-recovery-status" role="status"></p>
+          <button class="button create-account" type="submit">Send recovery link</button>
+          <p class="signin-prompt"><a href="#signin">Back to sign in</a></p>
+        </form>
+      </section>
+
+      <section id="password-reset-view" class="view form-view" hidden>
+        <form class="join-card auth-card" id="password-reset-form">
+          <div class="form-intro"><h1>Choose a new password</h1></div>
+          <label>New password<input name="password" type="password" autocomplete="new-password" minlength="8" required></label>
+          <label>Confirm password<input name="confirmPassword" type="password" autocomplete="new-password" minlength="8" required></label>
+          <p class="field-hint auth-status" id="password-reset-status" role="status"></p>
+          <button class="button create-account" type="submit">Update password</button>
+        </form>
+      </section>
+
+      <section id="terms-view" class="view page-view legal-page" hidden>
+        <div class="narrow-page">
+          <div class="page-title"><div><h1>Terms of Use</h1><p>Demo terms · version 2026-11-v1</p></div></div>
+          <section class="surface-card legal-copy">
+            <h2>1. Demonstration service</h2>
+            <p>TrustGift is a demonstration. Gifts, payments, payouts, rewards, and level queues are not active. The amounts and board illustrations are examples only, not offers, guarantees, or promises of returns.</p>
+            <h2>2. Eligibility and account</h2>
+            <p>You must be at least 18 years old (or the higher age of legal majority in your country) and legally able to accept these terms. Keep your sign-in credentials private and provide accurate account information.</p>
+            <h2>3. No financial activity</h2>
+            <p>Do not send money or provide payment credentials through this demo. TrustGift does not currently collect, hold, transfer, or pay money. No future payment feature should be used without separate terms and appropriate legal review.</p>
+            <h2>4. Risk and no guarantee</h2>
+            <p>Any future voluntary gift would not guarantee that you receive anything in return. Participation could result in losing the entire amount given. Do not rely on projected amounts or recruit others based on a promise of financial return.</p>
+            <h2>5. Acceptable use and support</h2>
+            <p>Do not misuse the service, attempt unauthorized access, or send unlawful content. Support messages and attachments are intended for account assistance and may be reviewed by authorized support agents.</p>
+            <h2>6. Changes and contact</h2>
+            <p>These demo terms are informational and are not legal advice. Before any public commercial launch, the operator must publish contact details, final terms, and obtain legal review appropriate to each jurisdiction.</p>
+            <p><a href="#join">Return to registration</a></p>
+          </section>
+        </div>
+      </section>
+
+      <section id="privacy-view" class="view page-view legal-page" hidden>
+        <div class="narrow-page">
+          <div class="page-title"><div><h1>Privacy Policy</h1><p>Demo privacy notice · version 2026-11-v1</p></div></div>
+          <section class="surface-card legal-copy">
+            <h2>Information used</h2>
+            <p>When you register, the service processes your e-mail address, first and last name, username, country, referral code, and the date and versions of your legal acknowledgements. Phone and WhatsApp numbers are optional. If you use the service, it also processes referral status, support messages and attachments, selected payment-method preferences, and your leaderboard opt-in choice.</p>
+            <h2>How information is used</h2>
+            <p>Information is used to authenticate accounts, operate profiles and referrals, show the optional leaderboard, and provide support. Payment preferences are labels only: this demo does not collect wallet addresses, Pix keys, bank details, or payment credentials.</p>
+            <h2>Visibility and providers</h2>
+            <p>Your private profile and contacts are limited to you and authorized support agents. The public leaderboard shows only the username, country, and confirmed referral count of members who opt in. Supabase provides authentication, database, and private file storage for this demo.</p>
+            <h2>Browser storage and retention</h2>
+            <p>Your language choice is saved in this browser. Authentication uses Supabase session storage. Account data and support content remain in the configured Supabase project until deleted under its retention and backup settings; the operator should define and publish a deletion and retention process before launch.</p>
+            <h2>Your choices and contact</h2>
+            <p>You can opt out of the leaderboard in your profile and can contact Support through the app. A production launch must add the operator's contact details and explain how to exercise applicable privacy rights.</p>
+            <p>This notice is a demo summary, not legal advice. It must be reviewed and completed for the operator's actual practices and applicable laws before public launch.</p>
+            <p><a href="#join">Return to registration</a></p>
+          </section>
+        </div>
       </section>
     </main>
 
@@ -365,7 +437,7 @@
     <button class="back-to-top" type="button" aria-label="Back to top">↑</button>
     <div class="toast" role="status" aria-live="polite"></div>
     <script src="supabase-config.js?v=1"></script>
-    <script src="translations.js?v=1"></script>
-    <script src="app.js?v=admin-i18n-5"></script>
+    <script src="translations.js?v=2"></script>
+    <script src="app.js?v=support-access-recovery-6"></script>
   </body>
 </html>

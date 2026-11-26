@@ -294,6 +294,17 @@ h1, h2, p { margin-top: 0; }
 .support-agent-only[hidden] { display: none !important; }
 .admin-tools { width: min(850px, 100%); margin: 0 auto; }
 .admin-invitations { padding: 20px; }
+.support-access-columns { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; margin-top: 20px; }
+.support-access-columns h3 { margin: 0 0 10px; font-size: 14px; }
+.support-access-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-top: 1px solid #242529; color: #c9cbd0; font-size: 12px; }
+.support-access-row > span { min-width: 0; overflow-wrap: anywhere; }
+.support-access-row .button { flex: 0 0 auto; padding: 7px 10px; }
+.legal-page { padding-bottom: 36px; }
+.legal-copy { padding: 22px; color: #c9cbd0; line-height: 1.65; }
+.legal-copy h2 { margin: 22px 0 7px; color: #f5f6f7; font-size: 16px; }
+.legal-copy h2:first-child { margin-top: 0; }
+.legal-copy p { margin-bottom: 12px; }
+.legal-copy a { color: var(--lime); }
 .admin-invitations form > label { display: block; margin-bottom: 7px; color: #e1e4e9; font-size: 12px; font-weight: 700; }
 .admin-invite-row { display: flex; gap: 9px; }
 .admin-invite-row input { flex: 1; min-width: 0; height: 46px; padding: 0 12px; border: 1px solid #2a2b2f; border-radius: 12px; outline: none; color: #eef0f3; background: #08090b; }
@@ -397,6 +408,7 @@ body:not(.view-dashboard) .site-footer { margin-top: 0; }
   .main-nav a { font-size: 14px; }
   .levels-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .level-card { min-height: 470px; }
+  .support-access-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 639px) {
   .join-card input:not([type="checkbox"]),

@@ -49,12 +49,18 @@ const pageViews = {
   "admin-tools": document.querySelector("#admin-tools-view"),
   profile: document.querySelector("#profile-view"),
   join: joinView,
-  signin: signinView
+  signin: signinView,
+  "password-recovery": document.querySelector("#password-recovery-view"),
+  "password-reset": document.querySelector("#password-reset-view"),
+  terms: document.querySelector("#terms-view"),
+  privacy: document.querySelector("#privacy-view")
 };
 const toast = document.querySelector(".toast");
 const referralCodeInput = document.querySelector('[name="referralCode"]');
 const referralFromUrl = new URLSearchParams(location.search).get("ref");
 let pendingSupportInviteToken = new URLSearchParams(location.search).get("support_invite");
+let passwordRecoveryRedirect = new URLSearchParams(location.hash.slice(1)).get("type") === "recovery"
+  || new URLSearchParams(location.search).get("type") === "recovery";
 let supportInviteAttemptedFor = null;
 if (pendingSupportInviteToken && !location.hash) location.hash = "#join";
 if (referralFromUrl) referralCodeInput.value = referralFromUrl.toUpperCase();
@@ -96,8 +102,9 @@ function renderRoute() {
   Object.entries(pageViews).forEach(([name, view]) => {
     view.hidden = name !== route;
   });
+
   body.classList.toggle("view-dashboard", route === "dashboard");
-  body.classList.toggle("auth-view", isJoin || isSignin);
+  body.classList.toggle("auth-view", isJoin || isSignin || route === "password-recovery" || route === "password-reset");
   body.classList.toggle("authenticated", Boolean(currentUser));
   body.classList.toggle("support-agent", isSupportAgent());
   body.classList.toggle("trustgift-admin", isTrustGiftAdmin());
@@ -114,7 +121,11 @@ function renderRoute() {
     profile: "My profile — TrustGift",
     "admin-tools": "Administrator — TrustGift",
     join: "Join TrustGift",
-    signin: "Sign in — TrustGift"
+    signin: "Sign in — TrustGift",
+    "password-recovery": "Reset your password — TrustGift",
+    "password-reset": "Choose a new password — TrustGift",
+    terms: "Terms of Use — TrustGift",
+    privacy: "Privacy Policy — TrustGift"
   };
   document.title = t(titles[route]);
   document.querySelectorAll(".main-nav a[href^='#']").forEach(link => {
@@ -124,7 +135,13 @@ function renderRoute() {
   document.querySelector(".menu-toggle").setAttribute("aria-expanded", "false");
   window.scrollTo(0, 0);
 }
-document.addEventListener("trustgift-language-change", renderRoute);
+document.addEventListener("trustgift-language-change", () => {
+  renderRoute();
+  loadActiveRouteData().catch(error => {
+    console.error("Could not reload this page after changing language.", error);
+    showToast(`Could not load page data: ${authErrorMessage(error)}`);
+  });
+});
 
 window.addEventListener("hashchange", () => {
   renderRoute();
@@ -330,17 +347,30 @@ async function initializeSupabase() {
     supabaseClient = createClient(config.url, config.publishableKey, {
       auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: true }
     });
+    supabaseClient.auth.onAuthStateChange(event => {
+      if (event === "PASSWORD_RECOVERY") passwordRecoveryRedirect = true;
+    });
 
     const health = await fetch(`${config.url.replace(/\/+$/, "")}/auth/v1/health`, {
       headers: { apikey: config.publishableKey }
     });
     if (!health.ok) throw new Error(`Supabase returned HTTP ${health.status}`);
 
-    const { data: readiness, error: readinessError } = await supabaseClient.rpc("member_workflows_ready");
-    if (readinessError || readiness !== true) {
-      console.error("Supabase is reachable, but its schema migration is not ready.", readinessError);
-      setAuthStatus("signup-status", "Supabase is reachable, but the member-workflows migration is not applied. Run the new SQL migration before creating accounts.");
-      setAuthStatus("signin-status", "Supabase is reachable, but the member-workflows migration is not applied. Run the new SQL migration before signing in.");
+    const [
+      { data: workflowsReady, error: workflowsError },
+      { data: supportManagementReady, error: supportManagementError }
+    ] = await Promise.all([
+      supabaseClient.rpc("member_workflows_ready"),
+      supabaseClient.rpc("support_agent_management_ready")
+    ]);
+    if (workflowsError || workflowsReady !== true
+        || supportManagementError || supportManagementReady !== true) {
+      console.error("Supabase is reachable, but required migrations are not ready.", {
+        workflowsError,
+        supportManagementError
+      });
+      setAuthStatus("signup-status", "Supabase is reachable, but required database migrations are missing. Run all SQL migrations before creating accounts.");
+      setAuthStatus("signin-status", "Supabase is reachable, but required database migrations are missing. Run all SQL migrations before signing in.");
       return;
     }
     schemaReady = true;
@@ -348,11 +378,16 @@ async function initializeSupabase() {
     const { data, error } = await supabaseClient.auth.getSession();
     if (error) throw error;
     await applySession(data.session);
+    if (passwordRecoveryRedirect) {
+      passwordRecoveryRedirect = false;
+      location.hash = "#password-reset";
+    }
     setAuthStatus("signup-status", "Supabase is connected and the database schema is ready.");
     setAuthStatus("signin-status", "Sign-in is handled by Supabase Auth.");
 
-    supabaseClient.auth.onAuthStateChange((_event, session) => {
+    supabaseClient.auth.onAuthStateChange((event, session) => {
       window.setTimeout(() => {
+        if (event === "PASSWORD_RECOVERY") location.hash = "#password-reset";
         applySession(session).catch(error => {
           console.error("Could not update the signed-in profile.", error);
           showToast(t("Could not load your profile: {error}", { error: authErrorMessage(error) }));
@@ -485,6 +520,7 @@ function renderReferralList() {
     const row = document.createElement("div");
     row.className = "referral-row";
     const username = document.createElement("strong");
+    username.dataset.i18nIgnore = "";
     username.textContent = `@${referral.username}`;
     const status = document.createElement("span");
     status.className = referral.is_active ? "status-active" : "status-pending";
@@ -541,7 +577,9 @@ async function renderSupportMessages(container, messages, ownUserId) {
       bubble.append(attachment);
     }
     const timestamp = document.createElement("small");
-    timestamp.textContent = new Date(message.created_at).toLocaleString();
+    timestamp.textContent = new Date(message.created_at).toLocaleString(
+      window.TRUSTGIFT_I18N?.getLocale() ?? navigator.language
+    );
     bubble.append(timestamp);
     container.append(bubble);
   }
@@ -696,6 +734,7 @@ function renderLeaderboard(records) {
     position.className = positionNumber <= 3 ? "medal" : "";
     position.textContent = positionNumber === 1 ? "♛" : positionNumber <= 3 ? "♢" : `#${positionNumber}`;
     const username = document.createElement("td");
+    username.dataset.i18nIgnore = "";
     username.textContent = `@${record.username}`;
     const country = document.createElement("td");
     country.textContent = `${countryCodes[record.country] ?? ""} ${record.country}`.trim();
@@ -710,6 +749,7 @@ function renderLeaderboard(records) {
     rank.textContent = String(positionNumber);
     const identity = document.createElement("span");
     const listName = document.createElement("strong");
+    listName.dataset.i18nIgnore = "";
     listName.textContent = `@${record.username}`;
     const listCountry = document.createElement("small");
     listCountry.textContent = record.country;
@@ -866,10 +906,109 @@ async function loadActiveRouteData() {
     await loadSupportThread();
   } else if (route === "support-admin" && isSupportAgent()) {
     await loadSupportInbox();
+  } else if (route === "admin-tools" && isTrustGiftAdmin()) {
+    await loadSupportAccess();
   }
 }
 
 const supportInvitationForm = document.querySelector("#support-invitation-form");
+
+function renderSupportAccess(data) {
+  const agentList = document.querySelector("#support-agent-list");
+  const invitationList = document.querySelector("#support-invitation-list");
+  agentList.replaceChildren();
+  invitationList.replaceChildren();
+
+  if (!data.agents.length) {
+    agentList.textContent = t("No support agents.");
+  }
+  data.agents.forEach(agent => {
+    const row = document.createElement("div");
+    row.className = "support-access-row";
+    const label = document.createElement("span");
+    label.textContent = agent.email || agent.userId;
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "button";
+    remove.textContent = t("Remove");
+    remove.addEventListener("click", async () => {
+      remove.disabled = true;
+      try {
+        await invokeSupportAdminAction({ action: "remove_agent", userId: agent.userId });
+        await loadSupportAccess();
+      } catch (error) {
+        console.error("Could not remove support access.", error);
+        document.querySelector("#support-access-status").textContent =
+          t("Could not remove support access: {error}", { error: authErrorMessage(error) });
+        remove.disabled = false;
+      }
+    });
+    row.append(label, remove);
+    agentList.append(row);
+  });
+
+  if (!data.invitations.length) {
+    invitationList.textContent = t("No support invitations.");
+  }
+  data.invitations.forEach(invitation => {
+    const row = document.createElement("div");
+    row.className = "support-access-row";
+    const details = document.createElement("span");
+    const expires = new Date(invitation.expires_at).toLocaleString(
+      window.TRUSTGIFT_I18N?.getLocale() ?? navigator.language
+    );
+    details.textContent = `${invitation.email} · ${t(invitation.status)} · ${expires}`;
+    row.append(details);
+    if (invitation.status === "pending") {
+      const revoke = document.createElement("button");
+      revoke.type = "button";
+      revoke.className = "button";
+      revoke.textContent = t("Revoke");
+      revoke.addEventListener("click", async () => {
+        revoke.disabled = true;
+        try {
+          await invokeSupportAdminAction({ action: "revoke", invitationId: invitation.id });
+          await loadSupportAccess();
+        } catch (error) {
+          console.error("Could not revoke support invitation.", error);
+          document.querySelector("#support-access-status").textContent =
+            t("Could not revoke invitation: {error}", { error: authErrorMessage(error) });
+          revoke.disabled = false;
+        }
+      });
+      row.append(revoke);
+    }
+    invitationList.append(row);
+  });
+}
+
+async function invokeSupportAdminAction(body) {
+  const { data, error } = await supabaseClient.functions.invoke("support-invitations", { body });
+  if (error) await throwSupportFunctionError(error);
+  if (!data) throw new Error("The support access service returned no response.");
+  return data;
+}
+
+async function loadSupportAccess() {
+  const status = document.querySelector("#support-access-status");
+  status.textContent = t("Loading support access…");
+  try {
+    const data = await invokeSupportAdminAction({ action: "list" });
+    if (!Array.isArray(data.agents) || !Array.isArray(data.invitations)) {
+      throw new Error("The support access service returned invalid data.");
+    }
+    renderSupportAccess(data);
+    status.textContent = "";
+  } catch (error) {
+    console.error("Could not load support access.", error);
+    status.textContent = t("Could not load support access: {error}", { error: authErrorMessage(error) });
+  }
+}
+
+document.querySelector("#refresh-support-access").addEventListener("click", () => {
+  loadSupportAccess();
+});
+
 supportInvitationForm.addEventListener("submit", async event => {
   event.preventDefault();
   const status = document.querySelector("#support-invitation-status");
@@ -884,13 +1023,10 @@ supportInvitationForm.addEventListener("submit", async event => {
   result.hidden = true;
   status.textContent = t("Creating invitation link…");
   try {
-    const { data, error } = await supabaseClient.functions.invoke("support-invitations", {
-      body: {
-        action: "create",
-        email: String(new FormData(supportInvitationForm).get("email")).trim()
-      }
+    const data = await invokeSupportAdminAction({
+      action: "create",
+      email: String(new FormData(supportInvitationForm).get("email")).trim()
     });
-    if (error) await throwSupportFunctionError(error);
     if (typeof data?.token !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(data.token)) {
       throw new Error("The invitation service returned an invalid link.");
     }
@@ -905,6 +1041,7 @@ supportInvitationForm.addEventListener("submit", async event => {
     result.hidden = false;
     status.textContent = t("Invitation link created. Share it with the invited person. It expires in 7 days.");
     supportInvitationForm.reset();
+    await loadSupportAccess();
   } catch (error) {
     console.error("Could not create the support invitation.", error);
     status.textContent = t("Could not create support invitation: {error}", {
@@ -1319,6 +1456,67 @@ document.querySelector("#signin-form").addEventListener("submit", async event =>
     showToast(`Could not sign in: ${authErrorMessage(error)}`);
   } finally {
     submitButton.disabled = false;
+  }
+});
+
+document.querySelector("#password-recovery-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const status = document.querySelector("#password-recovery-status");
+  if (!supabaseClient || !schemaReady) {
+    status.textContent = t("Connect Supabase before requesting a recovery link.");
+    return;
+  }
+  const button = form.querySelector('button[type="submit"]');
+  button.disabled = true;
+  status.textContent = t("Sending recovery link…");
+  try {
+    const { error } = await supabaseClient.auth.resetPasswordForEmail(
+      String(new FormData(form).get("email")).trim(),
+      { redirectTo: authRedirectUrl }
+    );
+    if (error) throw error;
+    status.textContent = t("If an account matches that address, a recovery link has been sent.");
+  } catch (error) {
+    console.error("Could not request a password recovery link.", error);
+    status.textContent = t("Could not send recovery link: {error}", { error: authErrorMessage(error) });
+  } finally {
+    button.disabled = false;
+  }
+});
+
+document.querySelector("#password-reset-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const status = document.querySelector("#password-reset-status");
+  const values = new FormData(form);
+  const password = String(values.get("password"));
+  if (!currentUser || !supabaseClient) {
+    status.textContent = t("Open the password recovery link before choosing a new password.");
+    return;
+  }
+  if (password !== values.get("confirmPassword")) {
+    status.textContent = t("The new passwords do not match.");
+    return;
+  }
+  if (password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+    status.textContent = t("The new password must be at least 8 characters and include a letter and a number.");
+    return;
+  }
+  const button = form.querySelector('button[type="submit"]');
+  button.disabled = true;
+  status.textContent = t("Updating password…");
+  try {
+    const { error } = await supabaseClient.auth.updateUser({ password });
+    if (error) throw error;
+    form.reset();
+    status.textContent = t("Password updated.");
+    location.hash = "#dashboard";
+  } catch (error) {
+    console.error("Could not reset the password.", error);
+    status.textContent = t("Could not update password: {error}", { error: authErrorMessage(error) });
+  } finally {
+    button.disabled = false;
   }
 });
 

@@ -11,6 +11,7 @@ no payment is collected, and no payout or level-queue rules are active.
    - [`supabase/migrations/20261126100000_initial_schema.sql`](./supabase/migrations/20261126100000_initial_schema.sql)
    - [`supabase/migrations/20261126163000_member_workflows.sql`](./supabase/migrations/20261126163000_member_workflows.sql)
    - [`supabase/migrations/20261126170400_support_agent_invitations.sql`](./supabase/migrations/20261126170400_support_agent_invitations.sql)
+   - [`supabase/migrations/20261126173700_support_agent_management.sql`](./supabase/migrations/20261126173700_support_agent_management.sql)
 3. Copy the project URL and the **publishable key** (or legacy `anon` key)
    from Project Settings → API into `supabase-config.js`. Set `siteUrl` to the
    public HTTPS URL of this app; email confirmations use this value instead of
@@ -24,9 +25,10 @@ no payment is collected, and no payout or level-queue rules are active.
    is required. With confirmation enabled, referrals count as active only once
    the referred member confirms their address.
 
-The app checks that `member_workflows_ready()` returns true before enabling
-registration and sign-in. A publishable key cannot apply schema changes; run
-all migrations manually in the Supabase SQL Editor first.
+The app checks that both `member_workflows_ready()` and
+`support_agent_management_ready()` return true before enabling registration
+and sign-in. A publishable key cannot apply schema changes; run all migrations
+manually in the Supabase SQL Editor first.
 
 ## Administrator and support invitations
 
@@ -42,16 +44,28 @@ account:
    set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb)
      || '{"trustgift_admin": true, "support_agent": true}'::jsonb
    where lower(email) = lower('first-admin@example.com');
+
+   insert into public.support_agents (user_id)
+   select id from auth.users
+   where lower(email) = lower('first-admin@example.com')
+   on conflict (user_id) do nothing;
    ```
 
-2. Confirm that exactly one row was updated. Sign out of TrustGift and sign in
-   again so Supabase issues a JWT containing the new server-managed claims.
+2. Confirm that the account is now listed in `public.support_agents`; database
+   policies use that table to grant inbox access. Sign out of TrustGift and sign
+   in again so Supabase issues a JWT containing the new server-managed claims.
 3. Link the Supabase project and deploy the Edge Function:
 
    ```sh
    supabase link --project-ref YOUR_PROJECT_REF
    supabase functions deploy support-invitations
    ```
+
+   Legacy-secret JWT verification is turned off for this function
+   (`verify_jwt = false` in `supabase/config.toml`); the function itself rejects
+   any request without a valid signed-in user. If you deploy from the dashboard,
+   name the function exactly `support-invitations` and turn off **Verify JWT with
+   legacy secret**.
 
    The function uses Supabase's server-side `SUPABASE_URL` and
    `SUPABASE_SERVICE_ROLE_KEY` environment values. Never add the service-role
@@ -65,10 +79,19 @@ account:
    terms, and confirm the e-mail within 7 days. The one-time token is stored as
    a hash and redeemed by the Edge Function only after confirmation.
 
-Only an administrator can create support-agent invitations. The invitation
-system cannot grant administrator access; only the Supabase project owner can
-provision or change the administrator claim. Apply the invitation migration
-before deploying/using the function.
+Only an administrator can create or revoke pending support-agent invitations,
+or remove support-agent access. Support authorization is checked against the
+`support_agents` table so removing an agent takes effect in database policies
+without waiting for an existing JWT to expire. Reusing an accepted or expired
+invitation never restores access. The invitation system cannot grant
+administrator access; only the Supabase project owner can provision or change
+the administrator claim. Apply all four migrations before deploying/using the
+function.
+
+The registration form links to the demo Terms of Use and Privacy Policy
+(`2026-11-v1`). These texts describe the current demo, not a production legal
+agreement. Have them reviewed and replace the operator/contact and privacy
+retention details before public commercial use.
 
 ## Connected workflows
 
@@ -88,8 +111,14 @@ before deploying/using the function.
   invited person completes the regular sign-up and confirms the invited e-mail
   before the Edge Function grants `app_metadata.support_agent`. Never grant
   this claim through user-editable metadata or frontend code.
-- **Languages:** The interface can be switched between English, French, and
-  Spanish; the selection is saved in the current browser.
+- **Languages:** The interface can be switched between English, French,
+  Spanish, and a partial Brazilian Portuguese translation; the selection is
+  saved in the current browser. Review untranslated interface text before
+  advertising a language as fully supported.
+- **Account recovery and legal pages:** Members can request a password reset
+  by e-mail. The registration links open the demo Terms of Use and Privacy
+  Policy; these are not production legal documents and require operator and
+  jurisdiction-specific review before launch.
 - **Payment preparation:** The app stores only selected method types and
   currencies—not Pix keys, wallet addresses, bank details, or provider
   credentials. Pix is available only when the profile country is Brazil.
