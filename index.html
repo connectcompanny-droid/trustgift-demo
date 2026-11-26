@@ -331,14 +331,29 @@
               <button class="choice selected" type="button">Tether (USDT)</button>
               <button class="choice" type="button">USD Coin (USDC)</button>
             </div>
+            <div class="crypto-fields" id="crypto-fields">
+              <label>2. Choose the network
+                <select id="payment-network" autocomplete="off">
+                  <option value="tron">Tron (TRC-20)</option>
+                  <option value="ethereum">Ethereum (ERC-20)</option>
+                  <option value="bnb" selected>BNB Smart Chain (BEP-20)</option>
+                  <option value="polygon">Polygon (PoS)</option>
+                  <option value="arbitrum">Arbitrum One</option>
+                  <option value="solana">Solana (SPL)</option>
+                </select>
+              </label>
+              <p class="network-warning" id="network-warning" role="note"></p>
+              <label>3. Enter your receiving address
+                <input id="crypto-address" type="text" maxlength="64" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="0x...">
+              </label>
+            </div>
             <div class="payment-detail" id="payment-detail" hidden>
               <p id="payment-label">A secure payment provider must be configured before this method can receive funds.</p>
-              <p class="field-hint" id="payment-hint" hidden></p>
             </div>
             <button type="button" class="button add-method">＋&nbsp; Add</button>
             <div class="added-methods" id="added-methods"></div>
           </div>
-          <p class="field-hint">Preferences are saved after email confirmation; payment credentials are never collected here.</p>
+          <p class="field-hint">Demo only: your network and receiving address stay in this browser session and are not sent to Supabase. Only your method and currency preference is saved.</p>
           <label class="terms-title">Terms (required)</label>
           <div class="terms-list">
             <label class="check-row"><input type="checkbox" required><span>I confirm that I am at least 18 years old (or the age of legal majority in my country, if higher) and that I have full legal capacity.</span></label>
@@ -416,7 +431,7 @@
             <h2>Information used</h2>
             <p>When you register, the service processes your e-mail address, first and last name, username, country, referral code, and the date and versions of your legal acknowledgements. Phone and WhatsApp numbers are optional. If you use the service, it also processes referral status, support messages and attachments, selected payment-method preferences, and your leaderboard opt-in choice.</p>
             <h2>How information is used</h2>
-            <p>Information is used to authenticate accounts, operate profiles and referrals, show the optional leaderboard, and provide support. Payment preferences are labels only: this demo does not collect wallet addresses, Pix keys, bank details, or payment credentials.</p>
+            <p>Information is used to authenticate accounts, operate profiles and referrals, show the optional leaderboard, and provide support. Payment preferences are labels only: this demo does not transmit or persist wallet addresses, Pix keys, bank details, or payment credentials.</p>
             <h2>Visibility and providers</h2>
             <p>Your private profile and contacts are limited to you and authorized support agents. The public leaderboard shows only the username, country, and confirmed referral count of members who opt in. Supabase provides authentication, database, and private file storage for this demo.</p>
             <h2>Browser storage and retention</h2>
@@ -437,7 +452,7 @@
     <button class="back-to-top" type="button" aria-label="Back to top">↑</button>
     <div class="toast" role="status" aria-live="polite"></div>
     <script src="supabase-config.js?v=1"></script>
-    <script src="translations.js?v=2"></script>
-    <script src="app.js?v=support-access-recovery-6"></script>
+    <script src="translations.js?v=3"></script>
+    <script src="app.js?v=support-access-recovery-7"></script>
   </body>
 </html>

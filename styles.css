@@ -161,12 +161,17 @@ h1, h2, p { margin-top: 0; }
 .payment-options p { margin-bottom: 10px; color: #9daec6; font-size: 12px; }
 .choice { margin-right: 5px; margin-bottom: 5px; padding: 9px 13px; border: 1px solid #292a2f; border-radius: 12px; color: #aebbd0; background: #111214; cursor: pointer; }
 .choice.selected { border-color: #576d14; color: var(--lime); }
+.crypto-fields { margin-top: 16px; }
+.crypto-fields label { display: block; margin-bottom: 12px !important; color: #e1e4e9; font-size: 12px; font-weight: 700; }
+.crypto-fields input, .crypto-fields select { width: 100%; }
+.network-warning { margin: 0 0 14px; padding: 11px 12px; border: 1px solid #343523; border-radius: 10px; color: #c3cc9d; background: #13140f; font-size: 12px; line-height: 1.5; }
 .payment-detail { margin-top: 16px; }
 .payment-detail label { margin-bottom: 0 !important; }
 .add-method { display: flex; margin: 12px 0 0 auto; color: #8a909c; }
 .added-methods { display: grid; gap: 7px; margin-top: 12px; }
 .added-method { display: flex; align-items: center; justify-content: space-between; padding: 9px 11px; border: 1px solid #30332a; border-radius: 10px; color: #d7e5b3; font-size: 12px; }
-.added-method button { border: 0; color: #b6bdad; background: transparent; cursor: pointer; }
+.added-method span { min-width: 0; overflow-wrap: anywhere; }
+.added-method button { flex: 0 0 auto; border: 0; color: #b6bdad; background: transparent; cursor: pointer; }
 .terms-title { display: block; margin-bottom: 9px; color: #e1e4e9; font-size: 12px; font-weight: 700; }
 .terms-list { display: grid; gap: 8px; }
 .check-row { display: flex; align-items: flex-start; gap: 12px; padding: 13px; border: 1px solid #2a2b2f; border-radius: 13px; color: #e3e6ec; background: #090a0c; font-size: 12px; font-weight: 400; line-height: 1.55; cursor: pointer; }

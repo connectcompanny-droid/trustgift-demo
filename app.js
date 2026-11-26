@@ -427,6 +427,7 @@ document.querySelector(".copy-button").addEventListener("click", async event => 
 document.querySelector(".back-to-top").addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
 document.querySelectorAll(".language").forEach(button => button.addEventListener("click", () => {
   window.TRUSTGIFT_I18N?.setLanguage(button.dataset.lang);
+  updateNetworkWarning();
 }));
 
 document.querySelectorAll(".level-action:not(:disabled)").forEach(button => button.addEventListener("click", () => {
@@ -437,11 +438,22 @@ const paymentTabs = document.querySelectorAll("#payments .payment-tab");
 const paymentOptions = document.querySelector("#payment-options");
 const paymentDetail = document.querySelector("#payment-detail");
 const paymentLabel = document.querySelector("#payment-label");
-const paymentHint = document.querySelector("#payment-hint");
+const cryptoFields = document.querySelector("#crypto-fields");
+const paymentNetwork = document.querySelector("#payment-network");
+const cryptoAddress = document.querySelector("#crypto-address");
+const networkWarning = document.querySelector("#network-warning");
 const pixTab = document.querySelector('.payment-tab[data-method="Pix"]');
 const countrySelect = document.querySelector("#country-select");
 let selectedPayment = "Crypto";
 let selectedPaymentCurrency = "USDT";
+
+function updateNetworkWarning() {
+  const network = paymentNetwork.options[paymentNetwork.selectedIndex].textContent;
+  networkWarning.textContent = t("Send only {currency} over {network}. A transfer on another network may be lost.")
+    .replace("{currency}", selectedPaymentCurrency)
+    .replace("{network}", network);
+  cryptoAddress.placeholder = paymentNetwork.value === "solana" ? t("Solana address") : "0x...";
+}
 
 function updatePixAvailability() {
   const isBrazil = countrySelect.value === "Brazil";
@@ -459,19 +471,22 @@ function updatePaymentFields() {
   const isCrypto = selectedPayment === "Crypto";
   const isPix = selectedPayment === "Pix";
   paymentOptions.hidden = !isCrypto;
+  cryptoFields.hidden = !isCrypto;
   paymentDetail.hidden = isCrypto;
+  if (!isCrypto) cryptoAddress.value = "";
   paymentLabel.textContent = isPix
     ? "Pix preference saved as pending setup. No Pix key is collected."
     : `${selectedPayment} preference saved as pending setup. No account details are collected.`;
-  paymentHint.hidden = true;
   if (isCrypto) {
     const selectedChoice = document.querySelector("#payment-options .choice.selected");
     selectedPaymentCurrency = selectedChoice?.textContent.includes("USDC") ? "USDC" : "USDT";
+    updateNetworkWarning();
   }
 }
 
 countrySelect.addEventListener("change", updatePixAvailability);
 updatePixAvailability();
+updatePaymentFields();
 
 paymentTabs.forEach(button => button.addEventListener("click", () => {
   if (button.dataset.method === "Pix" && countrySelect.value !== "Brazil") return;
@@ -483,7 +498,16 @@ paymentTabs.forEach(button => button.addEventListener("click", () => {
 document.querySelectorAll("#payment-options .choice").forEach(button => button.addEventListener("click", () => {
   document.querySelectorAll("#payment-options .choice").forEach(choice => choice.classList.toggle("selected", choice === button));
   selectedPaymentCurrency = button.textContent.includes("USDC") ? "USDC" : "USDT";
+  updateNetworkWarning();
 }));
+
+paymentNetwork.addEventListener("change", updateNetworkWarning);
+
+function isValidCryptoAddress(network, address) {
+  if (network === "tron") return /^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(address);
+  if (network === "solana") return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address);
+  return /^0x[a-fA-F0-9]{40}$/.test(address);
+}
 
 document.querySelector(".secondary-copy").addEventListener("click", async event => {
   if (!currentProfile) {
@@ -1324,20 +1348,36 @@ document.querySelector("#join-view .add-method").addEventListener("click", () =>
     showToast("That payment preference is already selected.");
     return;
   }
-  const label = selectedPayment === "Crypto" ? `Crypto · ${currency}` : selectedPayment;
+  let label = selectedPayment;
+  if (selectedPayment === "Crypto") {
+    const address = cryptoAddress.value.trim();
+    if (!address) {
+      showToast("Network and receiving address are required.");
+      cryptoAddress.focus();
+      return;
+    }
+    if (!isValidCryptoAddress(paymentNetwork.value, address)) {
+      showToast(t("Enter a valid {network} receiving address.")
+        .replace("{network}", paymentNetwork.options[paymentNetwork.selectedIndex].textContent));
+      cryptoAddress.focus();
+      return;
+    }
+    label = `Crypto · ${currency} · ${paymentNetwork.options[paymentNetwork.selectedIndex].textContent} · ${address}`;
+  }
   const row = document.createElement("div");
   row.className = "added-method";
   row.dataset.method = methodCode;
   row.dataset.currency = currency;
   const text = document.createElement("span");
-  text.textContent = `${label} · provider setup required`;
+  text.textContent = label;
   const remove = document.createElement("button");
   remove.type = "button";
   remove.textContent = "Remove";
   remove.addEventListener("click", () => row.remove());
   row.append(text, remove);
   document.querySelector("#added-methods").append(row);
-  showToast("Preference added. No payment credentials were collected.");
+  if (selectedPayment === "Crypto") cryptoAddress.value = "";
+  showToast("Preference added. The address was not sent to Supabase.");
 });
 
 document.querySelectorAll(".show-password").forEach(button => button.addEventListener("click", () => {
