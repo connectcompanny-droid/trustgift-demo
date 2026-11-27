@@ -113,7 +113,13 @@ h1, h2, p { margin-top: 0; }
 .offer-amount { margin: 0 0 16px; color: var(--metal); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 24px; font-weight: 800; letter-spacing: -1px; }
 .line-info { display: grid; gap: 10px; padding: 11px; border: 1px solid #202124; border-radius: 18px; background: #08090a; color: #84878d; font-size: 11px; }
 .line-info > div { display: flex; justify-content: space-between; gap: 8px; }
-.line-info strong { color: #b5b6b9; text-align: right; }
+.demo-progress > p { margin: 0; line-height: 1.5; }
+.demo-history { margin-top: 13px; border: 1px solid #202124; border-radius: 14px; background: #08090a; color: #a4a8b0; font-size: 11px; }
+.demo-history summary { padding: 11px; color: #c4c8d0; cursor: pointer; font-weight: 700; }
+.demo-history-list { display: grid; gap: 9px; max-height: 220px; overflow-y: auto; margin: 0; padding: 0 11px 11px; list-style: none; }
+.demo-history-list li { display: grid; gap: 3px; padding-top: 8px; border-top: 1px solid #202124; line-height: 1.45; overflow-wrap: anywhere; }
+.demo-history-list time { color: #7d8798; font-size: 10px; }
+.demo-history .empty-copy { margin: 0; padding: 0 11px 11px; font-size: 11px; }
 .line-info .active-user { color: #e7e8eb; }
 .progress-track { height: 6px; margin-top: -3px; overflow: hidden; border-radius: 5px; background: #292a2e; }
 .progress-track span { display: block; width: 29%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #23ddd0, #ef47dd); }

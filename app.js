@@ -12,28 +12,164 @@ const levels = [
 ];
 
 const grid = document.querySelector("#levels-grid");
-grid.innerHTML = levels.map((level, index) => {
-  const active = level.position;
-  return `<article class="level-card ${active ? "active-level" : "locked"}">
-    <div class="level-meta"><span class="level-label">✧&nbsp; Level ${index + 1} • ${level.metal}</span>${active ? "" : '<span class="locked-label">♙&nbsp; LOCKED</span>'}</div>
-    <p class="offer-label">GIFT TO OFFER</p>
-    <h3 class="offer-amount">${level.amount}</h3>
-    ${active ? `<div class="line-info">
-      <span>You are not in this line yet.</span>
-      <div><span>Example center</span><strong class="active-user">@examplemember</strong></div>
-      <div><span>Sample board · completion</span><strong>2/7 · 29 %</strong></div>
-      <div class="progress-track"><span></span></div>
-      <span class="line-count">♧&nbsp; Example queue: 784</span>
-    </div>` : ""}
-    <div class="line-info support-info">
-      <div><span>♡&nbsp; 5 gifts received at the center:</span><strong>${level.received}</strong></div>
-      <div><span>♢&nbsp; ${index === 7 ? "4th and 7th" : index < 2 ? "5th and 7th" : "5th and 7th"} gifts:</span><strong>Support Fund (2 gifts)</strong></div>
-      <div><span>⟲&nbsp; Board completed:</span><strong>Re-entry paid by TrustGift</strong></div>
-    </div>
-    ${active ? "" : `<p class="unlocks">♙&nbsp; Unlocks as soon as you are active on ${levels[index - 1].metal}.</p>`}
-    <button class="button level-action ${active ? "" : "locked-button"}" type="button" ${active ? "" : "disabled"}>${active ? "Open the board&nbsp; →" : "Locked&nbsp; →"}</button>
-  </article>`;
-}).join("");
+const demoTableSimulation = {
+  unlockedThrough: 0,
+  nextParticipantId: 1,
+  tables: levels.map((_, index) => ({
+    centerUser: index === 0 ? "@examplemember" : "",
+    entriesThisCycle: 0,
+    cycleParticipants: [],
+    completedCycles: 0,
+    centerPoints: 0,
+    history: []
+  }))
+};
+const demoPoints = value => Number(value.replace(/[^\d]/g, ""));
+
+function formatDemoPoints(value) {
+  const locale = window.TRUSTGIFT_I18N?.getLocale() ?? "en-US";
+  return new Intl.NumberFormat(locale).format(value);
+}
+
+function formatDemoTimestamp(timestamp) {
+  const locale = window.TRUSTGIFT_I18N?.getLocale() ?? "en-US";
+  return new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" }).format(timestamp);
+}
+
+function renderDemoHistory(table) {
+  if (!table.history.length) return `<p class="empty-copy">${t("No simulated entries yet.")}</p>`;
+  return `<ol class="demo-history-list">${[...table.history].reverse().map(event => {
+    let message;
+    if (event.type === "entry") {
+      message = t("Entry {order} of cycle {cycle}: {participant} simulated {sent} demo points; {center} received {received} demo points.", {
+        order: event.order,
+        cycle: event.cycle,
+        participant: event.participant,
+        sent: formatDemoPoints(event.sentPoints),
+        center: event.center,
+        received: formatDemoPoints(event.receivedPoints)
+      });
+    } else if (event.type === "advance") {
+      message = t("Table {table} unlocked for {user} after 4 entries.", {
+        table: event.table,
+        user: event.user
+      });
+    } else {
+      message = t("Cycle {cycle} complete: {previous} left the center; {next} is now the center. Total credited: {total} demo points.", {
+        cycle: event.cycle,
+        previous: event.previousCenter,
+        next: event.nextCenter,
+        total: formatDemoPoints(event.totalPoints)
+      });
+    }
+    return `<li><time>${formatDemoTimestamp(event.timestamp)}</time><span>${message}</span></li>`;
+  }).join("")}</ol>`;
+}
+
+function renderDemoTables() {
+  grid.innerHTML = levels.map((level, index) => {
+    const table = demoTableSimulation.tables[index];
+    const unlocked = index <= demoTableSimulation.unlockedThrough;
+    const entryPoints = demoPoints(level.amount);
+    const centerReward = demoPoints(level.received);
+    const pointsPerEntry = centerReward / 4;
+    const nextTableCopy = index < levels.length - 1
+      ? t("Four entries unlock the next table.")
+      : t("This is the final configured table.");
+    const status = unlocked
+      ? `<div class="line-info demo-progress" role="status">
+          <div><span>${t("Current center")}</span><strong data-i18n-ignore>${table.centerUser}</strong></div>
+          <div><span>${t("Simulated entries this cycle")}</span><strong>${table.entriesThisCycle}/10</strong></div>
+          <div><span>${t("Demo points received this cycle")}</span><strong>${formatDemoPoints(table.centerPoints)} pts</strong></div>
+          <div><span>${t("Completed cycles")}</span><strong>${table.completedCycles}</strong></div>
+          <p>${t("The first 4 entries each credit {share} demo points to the center (total {total}).", {
+            share: formatDemoPoints(pointsPerEntry),
+            total: formatDemoPoints(centerReward)
+          })}</p>
+          <p>${nextTableCopy}</p>
+          <p>${t("Receiving method: not used in this demo.")}</p>
+        </div>`
+      : `<div class="line-info"><p>${t("Waiting for the previous table to unlock this one.")}</p></div>`;
+    return `<article class="level-card ${unlocked ? "active-level" : "locked"}">
+      <div class="level-meta">
+        <span class="level-label">✧&nbsp; ${t("Level {number} • {metal}", { number: index + 1, metal: t(level.metal) })}</span>
+        ${unlocked ? "" : `<span class="locked-label">♙&nbsp; ${t("LOCKED")}</span>`}
+      </div>
+      <p class="offer-label">${t("DEMO ENTRY VALUE")}</p>
+      <h3 class="offer-amount">${t("{amount} demo points", { amount: formatDemoPoints(entryPoints) })}</h3>
+      ${status}
+      <details class="demo-history">
+        <summary>${t("Simulation history ({count})", { count: table.history.length })}</summary>
+        ${renderDemoHistory(table)}
+      </details>
+      <button class="button level-action ${unlocked ? "" : "locked-button"}" type="button" data-demo-entry="${index}" ${unlocked ? "" : "disabled"}>${t("Simulate one entry")}</button>
+    </article>`;
+  }).join("");
+}
+
+function simulateDemoEntry(index) {
+  const table = demoTableSimulation.tables[index];
+  if (!table || index > demoTableSimulation.unlockedThrough) return;
+
+  const level = levels[index];
+  const order = table.entriesThisCycle + 1;
+  const cycle = table.completedCycles + 1;
+  const participant = `@demo-user-${String(demoTableSimulation.nextParticipantId).padStart(3, "0")}`;
+  demoTableSimulation.nextParticipantId += 1;
+  const receivedPoints = order <= 4 ? demoPoints(level.received) / 4 : 0;
+  table.centerPoints += receivedPoints;
+  table.history.push({
+    type: "entry",
+    cycle,
+    order,
+    participant,
+    center: table.centerUser,
+    sentPoints: demoPoints(level.amount),
+    receivedPoints,
+    timestamp: Date.now()
+  });
+  table.cycleParticipants.push(participant);
+  table.entriesThisCycle = order;
+
+  if (order === 4 && index < levels.length - 1) {
+    demoTableSimulation.unlockedThrough = Math.max(demoTableSimulation.unlockedThrough, index + 1);
+    const nextTable = demoTableSimulation.tables[index + 1];
+    if (!nextTable.centerUser) nextTable.centerUser = table.centerUser;
+    table.history.push({
+      type: "advance",
+      table: t(levels[index + 1].metal),
+      user: table.centerUser,
+      timestamp: Date.now()
+    });
+  }
+
+  if (order === 10) {
+    const nextCenter = table.cycleParticipants[0];
+    table.history.push({
+      type: "complete",
+      cycle,
+      previousCenter: table.centerUser,
+      nextCenter,
+      totalPoints: table.centerPoints,
+      timestamp: Date.now()
+    });
+    table.centerUser = nextCenter;
+    table.entriesThisCycle = 0;
+    table.cycleParticipants = [];
+    table.centerPoints = 0;
+    table.completedCycles += 1;
+  }
+
+  renderDemoTables();
+  grid.querySelector(`[data-demo-entry="${index}"]`)?.focus();
+}
+
+grid.addEventListener("click", event => {
+  const button = event.target.closest("[data-demo-entry]");
+  if (button) simulateDemoEntry(Number(button.dataset.demoEntry));
+});
+document.addEventListener("trustgift-language-change", renderDemoTables);
+renderDemoTables();
 
 const body = document.body;
 const dashboardView = document.querySelector("#dashboard-view");
@@ -428,10 +564,6 @@ document.querySelector(".back-to-top").addEventListener("click", () => window.sc
 document.querySelectorAll(".language").forEach(button => button.addEventListener("click", () => {
   window.TRUSTGIFT_I18N?.setLanguage(button.dataset.lang);
   updateNetworkWarning();
-}));
-
-document.querySelectorAll(".level-action:not(:disabled)").forEach(button => button.addEventListener("click", () => {
-  showToast("Bronze board preview — demo only.");
 }));
 
 const paymentTabs = document.querySelectorAll("#payments .payment-tab");
