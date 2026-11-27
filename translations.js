@@ -1,7 +1,7 @@
 (() => {
   const translations = {
     FR: {
-      "The 8 levels": "Les 8 niveaux",
+      "The 5 tables": "Les 5 tableaux",
       "How it works": "Comment ça marche",
       Payments: "Paiements",
       Security: "Sécurité",
@@ -27,7 +27,7 @@
       "Invite friends with your personal code.": "Invitez vos amis avec votre code personnel.",
       "Sign in to view your referral link": "Connectez-vous pour voir votre lien de parrainage",
       "▢ Copy": "▢ Copier",
-      "The 8 precious-metal levels": "Les 8 niveaux de métaux précieux",
+      "The 5 demo tables": "Les 5 tableaux de démonstration",
       "Preview only. No level queue, gift, or payment is active until the business rules and provider are configured.": "Aperçu uniquement. Aucune file d'attente, aucun cadeau ni paiement n'est actif avant la configuration des règles et du prestataire.",
       "All amounts, positions, and board details below are illustrative—not live offers or payout promises.": "Les montants, positions et détails ci-dessous sont illustratifs : ce ne sont ni des offres actives ni des promesses de paiement.",
       "✧ Level 1 • Bronze": "✧ Niveau 1 • Bronze",
@@ -250,7 +250,6 @@
       "Could not sign out: {error}": "Impossible de vous déconnecter : {error}",
       "Good to see you again, {name}": "Heureux de vous revoir, {name}",
       "Invite code {code}": "Code d'invitation {code}",
-      "Level {number} • {metal}": "Niveau {number} • {metal}",
       "♙ Unlocks as soon as you are active on {metal}.": "♙ Se déverrouille dès votre activation au niveau {metal}.",
       "Member {id}": "Membre {id}",
       "No referrals yet. Share your invite link.": "Aucun parrainage pour l'instant. Partagez votre lien d'invitation.",
@@ -376,7 +375,7 @@
       "Supabase is reachable, but required database migrations are missing. Run all SQL migrations before signing in.": "Supabase est accessible, mais des migrations de base de données sont manquantes. Exécutez toutes les migrations SQL avant de vous connecter."
     },
     ES: {
-      "The 8 levels": "Los 8 niveles",
+      "The 5 tables": "Las 5 tablas",
       "How it works": "Cómo funciona",
       Payments: "Pagos",
       Security: "Seguridad",
@@ -402,7 +401,7 @@
       "Invite friends with your personal code.": "Invita a tus amigos con tu código personal.",
       "Sign in to view your referral link": "Inicia sesión para ver tu enlace de referido",
       "▢ Copy": "▢ Copiar",
-      "The 8 precious-metal levels": "Los 8 niveles de metales preciosos",
+      "The 5 demo tables": "Las 5 tablas de demostración",
       "Preview only. No level queue, gift, or payment is active until the business rules and provider are configured.": "Solo vista previa. No hay filas, regalos ni pagos activos hasta configurar las reglas y el proveedor.",
       "All amounts, positions, and board details below are illustrative—not live offers or payout promises.": "Los importes, posiciones y detalles son ilustrativos; no son ofertas activas ni promesas de pago.",
       "✧ Level 1 • Bronze": "✧ Nivel 1 • Bronce",
@@ -644,7 +643,6 @@
       "Could not sign out: {error}": "No se pudo cerrar la sesión: {error}",
       "Good to see you again, {name}": "Qué bueno verte de nuevo, {name}",
       "Invite code {code}": "Código de invitación {code}",
-      "Level {number} • {metal}": "Nivel {number} • {metal}",
       "♙ Unlocks as soon as you are active on {metal}.": "♙ Se desbloquea al activarte en {metal}.",
       "Member {id}": "Miembro {id}",
       "Preference saved. A payment provider is required before receiving funds.": "Preferencia guardada. Se necesita un proveedor de pagos para recibir fondos.",
@@ -773,7 +771,7 @@
       "Return to registration": "Volver al registro"
     },
     "PT-BR": {
-      "The 8 levels": "Os 8 níveis",
+      "The 5 tables": "As 5 tabelas",
       "How it works": "Como funciona",
       Payments: "Pagamentos",
       Security: "Segurança",
@@ -792,7 +790,7 @@
       "Your referral link:": "Seu link de indicação:",
       "Invite friends with your personal code.": "Convide amigos com seu código pessoal.",
       "Sign in to view your referral link": "Entre para ver seu link de indicação",
-      "The 8 precious-metal levels": "Os 8 níveis de metais preciosos",
+      "The 5 demo tables": "As 5 tabelas de demonstração",
       "Preview only. No level queue, gift, or payment is active until the business rules and provider are configured.": "Apenas demonstração. Filas, presentes e pagamentos não estão ativos.",
       "All amounts, positions, and board details below are illustrative—not live offers or payout promises.": "Valores, posições e quadros são ilustrativos; não são ofertas nem promessas de pagamento.",
       "Support gifts & rewards": "Presentes de apoio e recompensas",
@@ -992,7 +990,6 @@
     "♙ Unlocks as soon as you are active on Rhodium.": "♙ É desbloqueado quando você estiver ativo no Ródio.",
     "♙ Unlocks as soon as you are active on Iridium.": "♙ É desbloqueado quando você estiver ativo no Irídio.",
     "♙ Unlocks as soon as you are active on {metal}.": "♙ É desbloqueado quando você estiver ativo em {metal}.",
-    "Level {number} • {metal}": "Nível {number} • {metal}",
     "BUILDERS & CHAMPIONS PROGRAM": "PROGRAMA CONSTRUTORES E CAMPEÕES",
     "TOTAL GIFTS": "TOTAL DE PRESENTES",
     "EMAIL-CONFIRMED REFERRALS": "INDICAÇÕES COM E-MAIL CONFIRMADO",
@@ -1189,6 +1186,7 @@
 
   // Runtime messages: [English, French, Spanish, Brazilian Portuguese].
   for (const [source, fr, es, pt] of [
+    ["Table {number}", "Tableau {number}", "Tabla {number}", "Tabela {number}"],
     ["Revoke pending invitations or remove an agent's access. Administrator access cannot be changed here.", "Révoquez les invitations en attente ou retirez l'accès d'un agent. L'accès administrateur ne peut pas être modifié ici.", "Revoca invitaciones pendientes o retira el acceso de un agente. El acceso de administrador no se puede cambiar aquí.", "Revogue convites pendentes ou remova o acesso de um agente. O acesso de administrador não pode ser alterado aqui."],
     ["Refresh access list", "Actualiser la liste des accès", "Actualizar lista de accesos", "Atualizar lista de acessos"],
     ["Agents", "Agents", "Agentes", "Agentes"],

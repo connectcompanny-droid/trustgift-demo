@@ -102,9 +102,6 @@ h1, h2, p { margin-top: 0; }
 .level-card:nth-child(3) { --metal: #a78a37; --tint: #40340f; }
 .level-card:nth-child(4) { --metal: #4d9ba0; --tint: #0e3336; }
 .level-card:nth-child(5) { --metal: #62a79d; --tint: #123b37; }
-.level-card:nth-child(6) { --metal: #a45b67; --tint: #451820; }
-.level-card:nth-child(7) { --metal: #7772a5; --tint: #25213e; }
-.level-card:nth-child(8) { --metal: #a17baa; --tint: #351943; }
 .level-card.locked { filter: saturate(.72); }
 .level-meta { display: flex; align-items: flex-start; flex-direction: column; gap: 7px; margin-bottom: 18px; }
 .level-label, .locked-label { display: inline-flex; align-items: center; gap: 6px; border: 1px solid color-mix(in srgb, var(--metal), transparent 55%); border-radius: 20px; padding: 5px 11px; color: var(--metal); background: color-mix(in srgb, var(--tint), transparent 45%); font-size: 12px; font-weight: 700; white-space: nowrap; }
