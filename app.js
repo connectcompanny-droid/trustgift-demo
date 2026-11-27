@@ -1,14 +1,11 @@
 const t = (value, parameters) => window.TRUSTGIFT_I18N?.translate(value, parameters) ?? value;
 
 const levels = [
-  { metal: "Bronze", amount: "$20", received: "$100", position: true },
-  { metal: "Silver", amount: "$60", received: "$300" },
-  { metal: "Gold", amount: "$200", received: "$1.000" },
-  { metal: "Platinum", amount: "$500", received: "$2.500" },
-  { metal: "Palladium", amount: "$2.000", received: "$10.000" },
-  { metal: "Rhodium", amount: "$6.000", received: "$30.000" },
-  { metal: "Iridium", amount: "$20.000", received: "$100.000" },
-  { metal: "Osmium", amount: "$54.000", received: "$270.000" }
+  { amount: 15, received: 150 },
+  { amount: 60, received: 600 },
+  { amount: 240, received: 2400 },
+  { amount: 960, received: 9600 },
+  { amount: 3840, received: 38400 }
 ];
 
 const grid = document.querySelector("#levels-grid");
@@ -24,7 +21,7 @@ const demoTableSimulation = {
     history: []
   }))
 };
-const demoPoints = value => Number(value.replace(/[^\d]/g, ""));
+const demoPoints = value => Number(value);
 
 function formatDemoPoints(value) {
   const locale = window.TRUSTGIFT_I18N?.getLocale() ?? "en-US";
@@ -92,7 +89,7 @@ function renderDemoTables() {
       : `<div class="line-info"><p>${t("Waiting for the previous table to unlock this one.")}</p></div>`;
     return `<article class="level-card ${unlocked ? "active-level" : "locked"}">
       <div class="level-meta">
-        <span class="level-label">✧&nbsp; ${t("Level {number} • {metal}", { number: index + 1, metal: t(level.metal) })}</span>
+        <span class="level-label">✧&nbsp; ${t("Table {number}", { number: index + 1 })}</span>
         ${unlocked ? "" : `<span class="locked-label">♙&nbsp; ${t("LOCKED")}</span>`}
       </div>
       <p class="offer-label">${t("DEMO ENTRY VALUE")}</p>
@@ -137,7 +134,7 @@ function simulateDemoEntry(index) {
     if (!nextTable.centerUser) nextTable.centerUser = table.centerUser;
     table.history.push({
       type: "advance",
-      table: t(levels[index + 1].metal),
+      table: t("Table {number}", { number: index + 2 }),
       user: table.centerUser,
       timestamp: Date.now()
     });
