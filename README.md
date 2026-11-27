@@ -113,9 +113,10 @@ retention details before public commercial use.
   before the Edge Function grants `app_metadata.support_agent`. Never grant
   this claim through user-editable metadata or frontend code.
 - **Languages:** The interface can be switched between English, French,
-  Spanish, and a partial Brazilian Portuguese translation; the selection is
-  saved in the current browser. Review untranslated interface text before
-  advertising a language as fully supported.
+  Spanish, and Brazilian Portuguese; the selection is saved in the current
+  browser. Brand names and example values stay in English. Signed-in screens
+  have not been fully checked for untranslated text, and the translations have
+  not had a professional review.
 - **Account recovery and legal pages:** Members can request a password reset
   by e-mail. The registration links open the demo Terms of Use and Privacy
   Policy; these are not production legal documents and require operator and
