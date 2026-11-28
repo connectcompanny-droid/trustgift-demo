@@ -38,7 +38,7 @@ function renderDemoHistory(table) {
   return `<ol class="demo-history-list">${[...table.history].reverse().map(event => {
     let message;
     if (event.type === "entry") {
-      message = t("Entry {order} of cycle {cycle}: {participant} simulated {sent} demo points; {center} received {received} demo points.", {
+      message = t("Entry {order} of cycle {cycle}: {participant} simulated {sent}; {center} received {received}.", {
         order: event.order,
         cycle: event.cycle,
         participant: event.participant,
@@ -47,12 +47,12 @@ function renderDemoHistory(table) {
         received: formatDemoPoints(event.receivedPoints)
       });
     } else if (event.type === "advance") {
-      message = t("Table {table} unlocked for {user} after 4 entries.", {
-        table: event.table,
+      message = t("Table {number} unlocked for {user} after 4 entries.", {
+        number: event.tableNumber,
         user: event.user
       });
     } else {
-      message = t("Cycle {cycle} complete: {previous} left the center; {next} is now the center. Total credited: {total} demo points.", {
+      message = t("Cycle {cycle} complete: {previous} left the center; {next} is now the center. Total credited: {total}.", {
         cycle: event.cycle,
         previous: event.previousCenter,
         next: event.nextCenter,
@@ -77,9 +77,9 @@ function renderDemoTables() {
       ? `<div class="line-info demo-progress" role="status">
           <div><span>${t("Current center")}</span><strong data-i18n-ignore>${table.centerUser}</strong></div>
           <div><span>${t("Simulated entries this cycle")}</span><strong>${table.entriesThisCycle}/10</strong></div>
-          <div><span>${t("Demo points received this cycle")}</span><strong>${formatDemoPoints(table.centerPoints)} pts</strong></div>
+          <div><span>${t("Received this cycle")}</span><strong>${formatDemoPoints(table.centerPoints)}</strong></div>
           <div><span>${t("Completed cycles")}</span><strong>${table.completedCycles}</strong></div>
-          <p>${t("The first 4 entries each credit {share} demo points to the center (total {total}).", {
+          <p>${t("The first 4 entries each credit {share} to the center (total {total}).", {
             share: formatDemoPoints(pointsPerEntry),
             total: formatDemoPoints(centerReward)
           })}</p>
@@ -93,7 +93,7 @@ function renderDemoTables() {
         ${unlocked ? "" : `<span class="locked-label">♙&nbsp; ${t("LOCKED")}</span>`}
       </div>
       <p class="offer-label">${t("DEMO ENTRY VALUE")}</p>
-      <h3 class="offer-amount">${t("{amount} demo points", { amount: formatDemoPoints(entryPoints) })}</h3>
+      <h3 class="offer-amount">${formatDemoPoints(entryPoints)}</h3>
       ${status}
       <details class="demo-history">
         <summary>${t("Simulation history ({count})", { count: table.history.length })}</summary>
@@ -134,7 +134,7 @@ function simulateDemoEntry(index) {
     if (!nextTable.centerUser) nextTable.centerUser = table.centerUser;
     table.history.push({
       type: "advance",
-      table: t("Table {number}", { number: index + 2 }),
+      tableNumber: index + 2,
       user: table.centerUser,
       timestamp: Date.now()
     });
